@@ -12,6 +12,17 @@ import java.util.Set;
  * Djikstra's/A* search towards a set of goal states.
  */
 public class Pathfinder {
+
+    /** add a soup location to the map */
+    public void addSoupLocation(MapLocation location) {
+
+    }
+
+    /** get all known soup locations */
+    public Set<MapLocation> getSoupLocations() {
+        return null;
+    }
+
     /** Update the pathfinder state by actively sensing the area around the robot. */
     public void update(RobotController rc) {
     }
