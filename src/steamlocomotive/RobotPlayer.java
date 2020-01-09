@@ -21,7 +21,7 @@ public strictfp class RobotPlayer {
         Unit unit;
         switch (rc.getType()) {
             case HQ: unit = new HQ(); break;
-            case MINER: unit = new Miner(); break;
+            case MINER: unit = new Miner(rc); break;
             case REFINERY: unit = new Refinery(); break;
             case VAPORATOR: unit = new Vaporator(); break;
             case DESIGN_SCHOOL: unit = new DesignSchool(); break;
