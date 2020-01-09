@@ -10,6 +10,5 @@ public class Miner extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) {
-
     }
 }

@@ -25,6 +25,7 @@ src/lectureplayer
 
 # User-specific stuff:
 battlecode-scaffold.iws
+run.sh
 
 # Eclipse user-specific files
 .classpath
