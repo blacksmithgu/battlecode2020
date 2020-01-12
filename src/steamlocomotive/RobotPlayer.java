@@ -20,16 +20,23 @@ public strictfp class RobotPlayer {
         // Figure out the unit type that this agent is, for dispatch.
         Unit unit;
         switch (rc.getType()) {
-            case HQ: unit = new HQ(); break;
-            case MINER: unit = new Miner(rc); break;
-            case REFINERY: unit = new Refinery(); break;
-            case VAPORATOR: unit = new Vaporator(); break;
-            case DESIGN_SCHOOL: unit = new DesignSchool(); break;
-            case FULFILLMENT_CENTER: unit = new FulfillmentCenter(); break;
-            case LANDSCAPER: unit = new Landscaper(); break;
-            case DELIVERY_DRONE: unit = new DeliveryDrone(); break;
-            case NET_GUN: unit = new NetGun(); break;
+            case HQ: unit = new HQ(rc.getID()); break;
+            case MINER: unit = new Miner(rc.getID()); break;
+            case REFINERY: unit = new Refinery(rc.getID()); break;
+            case VAPORATOR: unit = new Vaporator(rc.getID()); break;
+            case DESIGN_SCHOOL: unit = new DesignSchool(rc.getID()); break;
+            case FULFILLMENT_CENTER: unit = new FulfillmentCenter(rc.getID()); break;
+            case LANDSCAPER: unit = new Landscaper(rc.getID()); break;
+            case DELIVERY_DRONE: unit = new DeliveryDrone(rc.getID()); break;
+            case NET_GUN: unit = new NetGun(rc.getID()); break;
             default: throw new IllegalStateException("Invalid unit type - should not happen.");
+        }
+
+        // Initial on creation call for agent setup.
+        try {
+            unit.onCreation(rc);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
 
         while (true) {
@@ -38,7 +45,12 @@ public strictfp class RobotPlayer {
             // Try/catch to avoid crashing the unit if it encounters an exception.
             // Try not to through exceptions in the first place.
             try {
+                int pround = rc.getRoundNum();
                 unit.run(rc, turn);
+                if (rc.getRoundNum() != pround)  {
+                    // Check for timeouts so we can warn appropriately.
+                    System.out.printf("Robot %s timed out (%d -> %d)%n", rc.getType(), pround, rc.getRoundNum());
+                }
 
                 // Wait until the start of the next turn.
                 Clock.yield();

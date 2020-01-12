@@ -6,12 +6,20 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
+/** General utilities for writing agents. */
 public class Utils {
+
+    @FunctionalInterface
+    public interface GameConsumer<T> {
+        void accept(T value) throws GameActionException;
+    }
+
     /**
      * The 8 possible cardinal directions.
      **/
-    static Direction[] DIRECTIONS = {
+    public static Direction[] DIRECTIONS = {
             Direction.NORTH,
             Direction.NORTHEAST,
             Direction.EAST,
@@ -64,65 +72,18 @@ public class Utils {
         }
     }
 
-    public static Set<MapLocation> senseableLocations(RobotController rc) {
-        int visionRadius = (int) Math.sqrt(rc.getType().sensorRadiusSquared);
+    public static void traverseSensable(RobotController rc, GameConsumer<MapLocation> func) throws GameActionException {
+        int visionRadius = (int) Math.ceil(Math.sqrt(rc.getType().sensorRadiusSquared));
         int ourX = rc.getLocation().x;
         int ourY = rc.getLocation().y;
-        Set<MapLocation> toReturn = new HashSet<>();
-        for (int x = -visionRadius; x < visionRadius; x++) {
-            for (int y = -visionRadius; y < visionRadius; y++) {
+
+        for (int x = -visionRadius; x <= visionRadius; x++) {
+            for (int y = -visionRadius; y <= visionRadius; y++) {
                 MapLocation location = new MapLocation(ourX + x, ourY + y);
-                if (rc.canSenseLocation(new MapLocation(ourX + x, ourY + y))) {
-                    toReturn.add(location);
+                if (rc.canSenseLocation(location)) {
+                    func.accept(location);
                 }
             }
-        }
-        return toReturn;
-    }
-
-    /**
-     * Return the direction from the origin point to the given target point.
-     * @param origin The starting point.
-     * @param target The destination point.
-     * @return The direction from the origin point to the target point.
-     */
-    public static Direction directionTo(MapLocation origin, MapLocation target) {
-        int deltaX = origin.x - target.x;
-        int deltaY = origin.y - target.y;
-
-        if (deltaX > 0 && deltaY > 0) {
-            return Direction.SOUTHWEST;
-        } else if (deltaX > 0 && deltaY == 0) {
-            return Direction.WEST;
-        } else if (deltaX > 0 && deltaY < 0) {
-            return Direction.NORTHWEST;
-        } else if (deltaX == 0 && deltaY > 0) {
-            return Direction.SOUTH;
-        } else if (deltaX == 0 && deltaY == 0) {
-            return Direction.CENTER;
-        } else if (deltaX == 0 && deltaY < 0) {
-            return Direction.NORTH;
-        } else if (deltaX < 0 && deltaY > 0) {
-            return Direction.SOUTHEAST;
-        } else if (deltaX < 0 && deltaY == 0) {
-            return Direction.EAST;
-        } else {
-            return Direction.NORTHEAST;
-        }
-    }
-
-    /** Invert the given direction. */
-    public static Direction invertDirection(Direction direction) {
-        switch (direction) {
-            case NORTH: return Direction.SOUTH;
-            case NORTHEAST: return Direction.SOUTHWEST;
-            case EAST: return Direction.WEST;
-            case SOUTHEAST: return Direction.NORTHWEST;
-            case SOUTH: return Direction.NORTH;
-            case SOUTHWEST: return Direction.NORTHEAST;
-            case WEST: return Direction.EAST;
-            case NORTHWEST: return Direction.SOUTHEAST;
-            default: return Direction.CENTER;
         }
     }
 }
