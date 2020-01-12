@@ -13,30 +13,41 @@ import java.util.Set;
  */
 public class Pathfinder {
 
-    /** add a soup location to the map */
+    /**
+     * add a soup location to the map
+     */
     public static void addSoupLocation(MapLocation location) {
 
     }
 
-    /** set the location of the HQ */
+    /**
+     * set the location of the HQ
+     */
     public static void setHQLocation(MapLocation location) {
 
     }
 
-    /** get the location of the HQ */
-    public static MapLocation getHQLocation(){
+    /**
+     * get the location of the HQ
+     */
+    public static MapLocation getHQLocation() {
         return null;
     }
 
-    /** get all known soup locations */
+    /**
+     * get all known soup locations
+     */
     public static Set<MapLocation> getSoupLocations() {
         return null;
     }
 
 
-    /** Update the pathfinder state by actively sensing the area around the robot. */
+    /**
+     * Update the pathfinder state by actively sensing the area around the robot.
+     */
     public static void update(RobotController rc) {
     }
+
     /**
      * Given a list of goal locations, find the movement direction which moves
      * towards the closest goal location.

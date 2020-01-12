@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.Set;
 
 public class Utils {
-    /** The 8 possible cardinal directions. **/
+    /**
+     * The 8 possible cardinal directions.
+     **/
     static Direction[] DIRECTIONS = {
             Direction.NORTH,
             Direction.NORTHEAST,
@@ -21,8 +23,8 @@ public class Utils {
     };
 
     public static boolean canBuild(RobotController rc, RobotType robotType) {
-        for(Direction direction: DIRECTIONS) {
-            if(rc.canBuildRobot(robotType, direction)) {
+        for (Direction direction : DIRECTIONS) {
+            if (rc.canBuildRobot(robotType, direction)) {
                 return true;
             }
         }
@@ -30,8 +32,8 @@ public class Utils {
     }
 
     public static void buildInAnyDirection(RobotController rc, RobotType robotType) {
-        for(Direction direction: DIRECTIONS) {
-            if(rc.canBuildRobot(robotType, direction)) {
+        for (Direction direction : DIRECTIONS) {
+            if (rc.canBuildRobot(robotType, direction)) {
                 try {
                     rc.buildRobot(robotType, direction);
                 } catch (GameActionException e) {
@@ -43,15 +45,15 @@ public class Utils {
 
     //prefers a specific direction but if the spot is filled then builds in a random direction
     public static void buildInDirection(RobotController rc, RobotType robotType, Direction dir) {
-        if(rc.canBuildRobot(robotType, dir)) {
+        if (rc.canBuildRobot(robotType, dir)) {
             try {
                 rc.buildRobot(robotType, dir);
             } catch (GameActionException e) {
                 System.out.println(e.getStackTrace());
             }
         } else {
-            for(Direction direction: DIRECTIONS) {
-                if(rc.canBuildRobot(robotType, direction)) {
+            for (Direction direction : DIRECTIONS) {
+                if (rc.canBuildRobot(robotType, direction)) {
                     try {
                         rc.buildRobot(robotType, direction);
                     } catch (GameActionException e) {
@@ -67,10 +69,10 @@ public class Utils {
         int ourX = rc.getLocation().x;
         int ourY = rc.getLocation().y;
         Set<MapLocation> toReturn = new HashSet<>();
-        for(int x = -visionRadius; x < visionRadius; x++) {
-            for(int y = - visionRadius; y < visionRadius; y++) {
-                MapLocation location = new MapLocation(ourX + x, ourY+y);
-                if(rc.canSenseLocation(new MapLocation(ourX + x, ourY+y))) {
+        for (int x = -visionRadius; x < visionRadius; x++) {
+            for (int y = -visionRadius; y < visionRadius; y++) {
+                MapLocation location = new MapLocation(ourX + x, ourY + y);
+                if (rc.canSenseLocation(new MapLocation(ourX + x, ourY + y))) {
                     toReturn.add(location);
                 }
             }
@@ -78,61 +80,49 @@ public class Utils {
         return toReturn;
     }
 
-    public static Direction directionToPoint(RobotController rc, MapLocation point) {
-        int deltaX = rc.getLocation().x - point.x;
-        int deltaY = rc.getLocation().y - point.y;
+    /**
+     * Return the direction from the origin point to the given target point.
+     * @param origin The starting point.
+     * @param target The destination point.
+     * @return The direction from the origin point to the target point.
+     */
+    public static Direction directionTo(MapLocation origin, MapLocation target) {
+        int deltaX = origin.x - target.x;
+        int deltaY = origin.y - target.y;
 
-        if(deltaX > 0 && deltaY > 0) {
+        if (deltaX > 0 && deltaY > 0) {
             return Direction.SOUTHWEST;
-        }
-        if(deltaX > 0 && deltaY == 0) {
+        } else if (deltaX > 0 && deltaY == 0) {
             return Direction.WEST;
-        }
-        if(deltaX > 0 && deltaY < 0) {
+        } else if (deltaX > 0 && deltaY < 0) {
             return Direction.NORTHWEST;
-        }
-        if(deltaX == 0 && deltaY > 0 ) {
+        } else if (deltaX == 0 && deltaY > 0) {
             return Direction.SOUTH;
-        }
-        if(deltaX == 0 && deltaY == 0) {
+        } else if (deltaX == 0 && deltaY == 0) {
             return Direction.CENTER;
-        }
-        if(deltaX == 0 && deltaY < 0) {
+        } else if (deltaX == 0 && deltaY < 0) {
             return Direction.NORTH;
-        }
-        if(deltaX < 0 && deltaY > 0) {
+        } else if (deltaX < 0 && deltaY > 0) {
             return Direction.SOUTHEAST;
-        }
-        if(deltaX < 0 && deltaY == 0) {
+        } else if (deltaX < 0 && deltaY == 0) {
             return Direction.EAST;
+        } else {
+            return Direction.NORTHEAST;
         }
-        return Direction.NORTHEAST;
     }
 
-    public static Direction directionFromPoint(RobotController rc, MapLocation point) {
-        return invertDirection(directionToPoint(rc, point));
-    }
-
-    private static Direction invertDirection(Direction direction) {
+    /** Invert the given direction. */
+    public static Direction invertDirection(Direction direction) {
         switch (direction) {
-            case NORTH:
-                return Direction.SOUTH;
-            case NORTHEAST:
-                return Direction.SOUTHWEST;
-            case EAST:
-                return Direction.WEST;
-            case SOUTHEAST:
-                return Direction.NORTHWEST;
-            case SOUTH:
-                return Direction.NORTH;
-            case SOUTHWEST:
-                return Direction.NORTHEAST;
-            case WEST:
-                return Direction.EAST;
-            case NORTHWEST:
-                return Direction.SOUTHEAST;
-            default:
-                return Direction.CENTER;
+            case NORTH: return Direction.SOUTH;
+            case NORTHEAST: return Direction.SOUTHWEST;
+            case EAST: return Direction.WEST;
+            case SOUTHEAST: return Direction.NORTHWEST;
+            case SOUTH: return Direction.NORTH;
+            case SOUTHWEST: return Direction.NORTHEAST;
+            case WEST: return Direction.EAST;
+            case NORTHWEST: return Direction.SOUTHEAST;
+            default: return Direction.CENTER;
         }
     }
 }
