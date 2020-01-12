@@ -11,10 +11,7 @@ import java.util.List;
 public class HQ extends Unit {
 
     // Number of miners which have been spawned.
-    private int numMiners = 0;
-
-    // The HQ map state knowledge.
-    private MapState map;
+    private int miners = 0;
 
     public HQ(int id) {
         super(id);
@@ -22,10 +19,9 @@ public class HQ extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
-        map.update(rc);
-
         // The HQ does nothing if we are too poor :(
         if (rc.getTeamSoup() < RobotType.MINER.cost) return;
+        if (this.miners >= 8) return;
 
         // Look at all of the soup locations, create a list, and send a miner to a random soup location.
         // TODO: Cache and update every X rounds in the future.
@@ -33,8 +29,8 @@ public class HQ extends Unit {
 
         // TODO: May consider soups from the whole map.
         Utils.traverseSensable(rc, loc -> {
-            if (!map.soup().containsKey(loc)) return;
-            if (map.soup().get(loc) > 0) soupLocations.add(loc);
+            int soup = rc.senseSoup(loc);
+            if (soup > 0) soupLocations.add(loc);
         });
 
         // Randomly choose a location to send a miner off too to die.
@@ -47,11 +43,7 @@ public class HQ extends Unit {
 
         if (rc.canBuildRobot(RobotType.MINER, desired)) {
             rc.buildRobot(RobotType.MINER, desired);
+            this.miners += 1;
         }
-    }
-
-    @Override
-    public void onCreation(RobotController rc) throws GameActionException {
-        this.map = new MapState(rc.getMapWidth(), rc.getMapHeight());
     }
 }
