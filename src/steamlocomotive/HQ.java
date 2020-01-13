@@ -19,6 +19,8 @@ public class HQ extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
+        // TODO: Add net gun behavior so the HQ shoots down nearby drones.
+
         // The HQ does nothing if we are too poor :(
         if (rc.getTeamSoup() < RobotType.MINER.cost) return;
         if (this.miners >= 8) return;

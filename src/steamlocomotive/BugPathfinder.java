@@ -36,8 +36,8 @@ public class BugPathfinder {
     }
 
     /** Create a bug pathfinder pathfinding to the given location. */
-    public static BugPathfinder pathfindTo(MapLocation goal, FollowingDirection preferred) {
-        return new BugPathfinder(goal, preferred);
+    public static BugPathfinder pathfindTo(MapLocation goal, FollowingDirection preferred, boolean allowAdjacent) {
+        return new BugPathfinder(goal, preferred, allowAdjacent);
     }
 
     // The goal location we want to get close to.
@@ -51,18 +51,31 @@ public class BugPathfinder {
     private Direction heading;
     // The distance we collided the obstacle at.
     private int obstacleDistance;
+    /// If true, then we can just pathfind to an adjacent tile to the goal.
+    private boolean allowAdjacent;
 
-    private BugPathfinder(MapLocation goal, FollowingDirection preferredDirection) {
+    private BugPathfinder(MapLocation goal, FollowingDirection preferredDirection, boolean allowAdjacent) {
         this.goal = goal;
         this.followDirection = preferredDirection;
         this.following = false;
         this.obstacleDistance = -1;
+        this.allowAdjacent = allowAdjacent;
     }
 
-    /** Find the move towards the goal state given the current location and a function for determining if a tile is walkable. */
+    /** Return the goal we are pathfinding towards. */
+    public MapLocation goal() { return goal; }
+
+    public boolean finished(MapLocation loc) {
+        return loc.equals(this.goal) || (allowAdjacent && loc.isAdjacentTo(this.goal));
+    }
+
+    /**
+     * Find the move towards the goal state given the current location and a function for determining if a tile is walkable.
+     * Returns Direction.CENTER if no further actions are necessary, or null if no actions are currently available.
+     */
     public Direction findMove(MapLocation loc, Function<Direction, Boolean> walkable) {
         // Already found the goal dummy.
-        if (loc.equals(this.goal)) return Direction.CENTER;
+        if (this.finished(loc)) return Direction.CENTER;
 
         // See if we can just directly move in the direction of the goal.
         Direction direct = loc.directionTo(this.goal);
@@ -79,7 +92,7 @@ public class BugPathfinder {
 
         // Need to follow the wall.
         // If we can directly move towards goal and we are closer to goal, then do that and reset obstacle.
-        if (loc.distanceSquaredTo(this.goal) < this.obstacleDistance && walkable.apply(direct)) {
+        if (loc.distanceSquaredTo(this.goal) <= this.obstacleDistance && walkable.apply(direct)) {
             this.following = false;
             return direct;
         }
@@ -95,8 +108,8 @@ public class BugPathfinder {
         Direction starting = this.heading;
         while (!walkable.apply(this.heading)) {
             this.heading = this.followDirection.againstWall(this.heading);
-            // We're surrounded, give up and try not to die
-            if (this.heading == starting) return Direction.CENTER;
+            // We're surrounded, give up for now and try not to die.
+            if (this.heading == starting) return null;
         }
 
         return this.heading;

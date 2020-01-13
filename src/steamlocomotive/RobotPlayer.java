@@ -43,13 +43,23 @@ public strictfp class RobotPlayer {
             turn += 1;
 
             // Try/catch to avoid crashing the unit if it encounters an exception.
-            // Try not to through exceptions in the first place.
+            // Try not to throw exceptions in the first place.
             try {
-                int pround = rc.getRoundNum();
-                unit.run(rc, turn);
-                if (rc.getRoundNum() != pround)  {
-                    // Check for timeouts so we can warn appropriately.
-                    System.out.printf("Robot %s timed out (%d -> %d)%n", rc.getType(), pround, rc.getRoundNum());
+                // We can consider allowing communication & execution if the robot
+                // is not ready via another method; for now do nothing.
+                if (rc.isReady()) {
+                    int bround = rc.getRoundNum();
+                    int bbytes = Clock.getBytecodeNum() + bround * rc.getType().bytecodeLimit;
+                    unit.run(rc, turn);
+                    int around = rc.getRoundNum();
+                    int abytes = Clock.getBytecodeNum() + rc.getRoundNum() * rc.getType().bytecodeLimit;
+
+                    if (bround != around)  {
+                        // Check for timeouts so we can warn appropriately.
+                        System.out.printf("Robot %s timed out (round %d -> %d, %d bytecodes)%n", rc.getType(), bround, around, abytes - bbytes);
+                    }
+
+                    // TODO: Consider adding a 'low utilization' warning.
                 }
 
                 // Wait until the start of the next turn.

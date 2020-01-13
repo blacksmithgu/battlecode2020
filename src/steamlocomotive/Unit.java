@@ -30,4 +30,14 @@ public abstract class Unit {
      * Perform any initial agent actions when the agent is created.
      */
     public void onCreation(RobotController rc) throws GameActionException { }
+
+    /**
+     * Return a new pathfinder which pathfinds to the given map location. If allowAdjacent is true, the agentr
+     * will terminate upon reaching a point adjacent to the goal instead of on the goal.
+     */
+    public BugPathfinder newPathfinder(MapLocation goal, boolean allowAdjacent) {
+         return BugPathfinder.pathfindTo(goal,
+                 this.rng.nextBoolean() ? BugPathfinder.FollowingDirection.LEFT : BugPathfinder.FollowingDirection.RIGHT,
+                 allowAdjacent);
+    }
 }
