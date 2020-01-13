@@ -176,6 +176,13 @@ public class Miner extends Unit {
 
     /** Travel behavior, where a miner travels to a known soup location. */
     public Transition travel(RobotController rc) throws GameActionException {
+        // Hacky solution to some bad behavior; if we can mine soup, immediately transition to mining.
+        for (Direction dir : Direction.allDirections()) {
+            if (rc.canMineSoup(dir)) {
+                return new Transition(MinerState.MINE, false);
+            }
+        }
+
         // If no pathfinder, create it to the closest soup.
         if (this.pathfinder == null) {
             MapLocation closest = soupReps[0];
