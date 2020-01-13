@@ -18,7 +18,7 @@ public class Miner extends Unit {
     /**
      * The square distance a soup can be within the representative to be considered part of it's clusters.
      */
-    public static int REPRESENTATIVE_THRESHOLD = 24;
+    public static int REPRESENTATIVE_THRESHOLD = RobotType.MINER.sensorRadiusSquared;
 
     /**
      * How long to travel towards random points when roaming; after this many steps, a new random target is chosen.
