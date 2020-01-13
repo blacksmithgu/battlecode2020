@@ -37,7 +37,7 @@ public abstract class Unit {
      */
     public BugPathfinder newPathfinder(MapLocation goal, boolean allowAdjacent) {
          return BugPathfinder.pathfindTo(goal,
-                 this.rng.nextBoolean() ? BugPathfinder.FollowingDirection.LEFT : BugPathfinder.FollowingDirection.RIGHT,
+                 this.rng.nextBoolean() ? BugPathfinder.FollowingDirection.CLOCKWISE : BugPathfinder.FollowingDirection.COUNTERCLOCKWISE,
                  allowAdjacent);
     }
 }

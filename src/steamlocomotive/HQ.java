@@ -3,6 +3,7 @@ package steamlocomotive;
 import battlecode.common.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -21,9 +22,12 @@ public class HQ extends Unit {
     public void run(RobotController rc, int turn) throws GameActionException {
         // TODO: Add net gun behavior so the HQ shoots down nearby drones.
 
-        // The HQ does nothing if we are too poor :(
-        if (rc.getTeamSoup() < RobotType.MINER.cost) return;
-        if (this.miners >= 8) return;
+        // Wait for cost of miner if before refinery cutoff, otherwise wait for cost of refinery + miner.
+        if (rc.getRoundNum() < Config.MIN_REFINERY_ROUND) {
+            if (rc.getTeamSoup() < RobotType.MINER.cost) return;
+        } else {
+            if (rc.getTeamSoup() < RobotType.MINER.cost + RobotType.REFINERY.cost) return;
+        }
 
         // Look at all of the soup locations, create a list, and send a miner to a random soup location.
         // TODO: Cache and update every X rounds in the future.
@@ -34,6 +38,10 @@ public class HQ extends Unit {
             int soup = rc.senseSoup(loc);
             if (soup > 0) soupLocations.add(loc);
         });
+
+        if (soupLocations.size() == 0) {
+            soupLocations.add(new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight())));
+        }
 
         // Randomly choose a location to send a miner off too to die.
         MapLocation target = soupLocations.get(this.rng.nextInt(soupLocations.size()));

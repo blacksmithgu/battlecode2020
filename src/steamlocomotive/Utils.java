@@ -16,59 +16,16 @@ public class Utils {
         void accept(T value) throws GameActionException;
     }
 
-    /**
-     * The 8 possible cardinal directions.
-     **/
-    public static Direction[] DIRECTIONS = {
-            Direction.NORTH,
-            Direction.NORTHEAST,
-            Direction.EAST,
-            Direction.SOUTHEAST,
-            Direction.SOUTH,
-            Direction.SOUTHWEST,
-            Direction.WEST,
-            Direction.NORTHWEST
-    };
-
-    public static boolean canBuild(RobotController rc, RobotType robotType) {
-        for (Direction direction : DIRECTIONS) {
-            if (rc.canBuildRobot(robotType, direction)) {
+    /** Returns true if the given direction is cardinal. 1 bytecode. Get wrecked. */
+    public static boolean isCardinal(Direction dir) {
+        switch (dir) {
+            case NORTH:
+            case SOUTH:
+            case EAST:
+            case WEST:
                 return true;
-            }
-        }
-        return false;
-    }
-
-    public static void buildInAnyDirection(RobotController rc, RobotType robotType) {
-        for (Direction direction : DIRECTIONS) {
-            if (rc.canBuildRobot(robotType, direction)) {
-                try {
-                    rc.buildRobot(robotType, direction);
-                } catch (GameActionException e) {
-                    System.out.println(e.getStackTrace());
-                }
-            }
-        }
-    }
-
-    //prefers a specific direction but if the spot is filled then builds in a random direction
-    public static void buildInDirection(RobotController rc, RobotType robotType, Direction dir) {
-        if (rc.canBuildRobot(robotType, dir)) {
-            try {
-                rc.buildRobot(robotType, dir);
-            } catch (GameActionException e) {
-                System.out.println(e.getStackTrace());
-            }
-        } else {
-            for (Direction direction : DIRECTIONS) {
-                if (rc.canBuildRobot(robotType, direction)) {
-                    try {
-                        rc.buildRobot(robotType, direction);
-                    } catch (GameActionException e) {
-                        System.out.println(e.getStackTrace());
-                    }
-                }
-            }
+            default:
+                return false;
         }
     }
 
