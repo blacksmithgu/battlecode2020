@@ -19,7 +19,29 @@ public class HQ extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
-        // TODO: Add net gun behavior so the HQ shoots down nearby drones.
+        // TODO: Integrate drone shooting into other sensing if needed for efficiency
+        //Look for enemy robots. Identify closest drone. Shoot it down.
+
+        MapLocation hqLoc = rc.getLocation();
+        RobotInfo closestDrone = rc.senseRobot(rc.getID());
+        int closestEnemyDist = 500;
+        RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        int enemyDist;
+        for (RobotInfo nearbyEnemy : enemyRobots) {
+            if (nearbyEnemy.type == RobotType.DELIVERY_DRONE) {
+                enemyDist = hqLoc.distanceSquaredTo(nearbyEnemy.location);
+                if (enemyDist < closestEnemyDist) {
+                    closestEnemyDist = enemyDist;
+                    closestDrone = nearbyEnemy;
+                }
+            }
+        }
+        if (rc.canShootUnit(closestDrone.ID) && closestDrone.type == RobotType.DELIVERY_DRONE) {
+            rc.shootUnit(closestDrone.ID);
+            //System.out.println("I have entered the drone shooting if statement.");
+            return;
+        }
+
 
 
 
