@@ -21,7 +21,6 @@ public class HQ extends Unit {
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
         // TODO: Add net gun behavior so the HQ shoots down nearby drones.
-        System.out.println("Joseph has successfully downloaded Git!");
         // Wait for cost of miner if before refinery cutoff, otherwise wait for cost of refinery + miner.
         if (rc.getRoundNum() < Config.MIN_REFINERY_ROUND) {
             if (rc.getTeamSoup() < RobotType.MINER.cost) return;
