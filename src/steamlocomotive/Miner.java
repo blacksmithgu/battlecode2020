@@ -15,7 +15,9 @@ public class Miner extends Unit {
         /** The miner is roaming looking for soup. */
         ROAMING,
         /** The miner is considering opening a refinery of it's own, settling down, having a family. */
-        DREAMING_ABOUT_REFINERY
+        DREAMING_ABOUT_REFINERY,
+        /** The miner is considering opening a fulfillment center, really try to find joy in life. */
+        DREAMING_ABOUT_FULFILLMENT
     }
 
     /** A transition from one state to another. Marks the target and whether an action has been taken. */
@@ -63,6 +65,7 @@ public class Miner extends Unit {
                 case TRAVEL: trans = this.travel(rc); break;
                 case MINE: trans = this.mining(rc); break;
                 case DREAMING_ABOUT_REFINERY: trans = this.refinery(rc); break;
+                case DREAMING_ABOUT_FULFILLMENT: trans = this.fulfillment(rc); break;
                 default:
                 case ROAMING: trans = this.roaming(rc); break;
             }
@@ -233,6 +236,9 @@ public class Miner extends Unit {
             if (rc.canDepositSoup(toRefinery)) {
                 // TODO: This is an action - do we need to mark transitions as turn terminating?
                 rc.depositSoup(toRefinery, rc.getSoupCarrying());
+                if (rc.getRoundNum() > 200 && rc.getTeamSoup() > 400) {
+                    return new Transition(MinerState.DREAMING_ABOUT_FULFILLMENT, true);
+                }
                 return new Transition(MinerState.TRAVEL, true);
             } else {
                 // No refinery is where we thought it was anymore. Start roaming around looking for a refinery.
@@ -269,6 +275,43 @@ public class Miner extends Unit {
         // :(
         return new Transition(MinerState.DROPOFF, false);
     }
+
+    public Transition fulfillment(RobotController rc) throws GameActionException {
+        // Ensure we have enough money to build a fulfillment center.
+        if (rc.getTeamSoup() < RobotType.FULFILLMENT_CENTER.cost) return new Transition(MinerState.DROPOFF, false);
+
+        // Ensure we're placing the fulfillment center far enough away!
+        for (RobotInfo info : rc.senseNearbyRobots(-1, rc.getTeam())) {
+            if (info.getType() == RobotType.FULFILLMENT_CENTER && info.getTeam() == rc.getTeam()) {
+                return new Transition(MinerState.TRAVEL, false);
+            }
+        }
+        //Builds a fulfillment center in a direction that it can. If can't, then transitions to roaming.
+            for (Direction adj : Direction.allDirections()) {
+                if (adj == Direction.CENTER) continue;
+                if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, adj)) {
+                    rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
+                    return new Transition(MinerState.TRAVEL, true);
+                }
+            }
+            //TODO add transitions into building this state
+
+
+        // Alright, it's time to build.
+        boolean built = false;
+        for (Direction adj : Direction.allDirections()) {
+            if (adj == Direction.CENTER) continue;
+            if (rc.canBuildRobot(RobotType.REFINERY, adj)) {
+                rc.buildRobot(RobotType.REFINERY, adj);
+                return new Transition(MinerState.DROPOFF, true);
+            }
+        }
+
+        // :(
+        return new Transition(MinerState.DROPOFF, false);
+    }
+
+
 
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
