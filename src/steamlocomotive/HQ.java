@@ -3,7 +3,6 @@ package steamlocomotive;
 import battlecode.common.*;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -12,7 +11,7 @@ import java.util.List;
 public class HQ extends Unit {
 
     // Number of miners which have been spawned.
-    private int miners = 0;
+    private int numMiners = 0;
 
     public HQ(int id) {
         super(id);
@@ -21,10 +20,20 @@ public class HQ extends Unit {
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
         // TODO: Add net gun behavior so the HQ shoots down nearby drones.
+
+
+
+
+
         // Wait for cost of miner if before refinery cutoff, otherwise wait for cost of refinery + miner.
+        //Stop building miners if we've reached the number of miners we want
         if (rc.getRoundNum() < Config.MIN_REFINERY_ROUND) {
             if (rc.getTeamSoup() < RobotType.MINER.cost) return;
-        } else {
+        }
+        else if (numMiners >= Config.MAX_NUM_MINERS){
+            return;
+        }
+        else {
             if (rc.getTeamSoup() < RobotType.MINER.cost + RobotType.REFINERY.cost) return;
         }
 
@@ -52,7 +61,7 @@ public class HQ extends Unit {
 
         if (rc.canBuildRobot(RobotType.MINER, desired)) {
             rc.buildRobot(RobotType.MINER, desired);
-            this.miners += 1;
+            this.numMiners += 1;
         }
     }
 }

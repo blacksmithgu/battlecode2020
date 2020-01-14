@@ -32,4 +32,9 @@ public class Config {
      * The square distance a soup can be within the representative to be considered part of it's clusters.
      */
     public static int REPRESENTATIVE_THRESHOLD = RobotType.MINER.sensorRadiusSquared;
+
+    /**
+     * The total number of miners that HQ builds, and then stops.
+     */
+    public static int MAX_NUM_MINERS = 8;
 }
