@@ -2,19 +2,17 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.util.List;
-
 public strictfp class DeliveryDrone extends Unit {
     //TODO implement behavior where drones carry miners to unreachable soup (e.g. TwoForOneAndTwoForAll)
     //TODO implement interactions with cows (drowning them, dropping them on enemies, or both)
     //TODO make drones stay out of range of enemy net shooters and HQ
 
-    public enum DroneState{
-        //The drone looks for hapless victims
+    public enum DroneState {
+        // The drone looks for hapless victims.
         ROAMING,
-        //The drone hunts its prey after sighting it
+        // The drone hunts its prey after sighting it.
         CHASING,
-        //The drone gives its new friend a bath
+        // The drone gives its new friend a bath.
         DUNKING
     }
 
@@ -32,23 +30,18 @@ public strictfp class DeliveryDrone extends Unit {
     private DeliveryDrone.DroneState state;
     // Pathfinder for going to a location;
     private BugPathfinder pathfinder;
-    // The number of steps that have been taken while pathfinding.
-    private int pathfindSteps;
     // Contains up to TRACKED_WATER_COUNT valid water representatives we can visit.
     private MapLocation[] waterReps;
-
 
     public DeliveryDrone(int id) {
         super(id);
         this.pathfinder = null;
-        this.pathfindSteps = 0;
         this.waterReps = new MapLocation[Config.TRACKED_SOUP_COUNT];
         this.state = DroneState.ROAMING;
     }
 
-
     public void run(RobotController rc, int turn) throws GameActionException {
-        // Update soup knowledge by scanning surroundings.
+        // Update water knowledge by scanning surroundings.
         this.scanSurroundings(rc);
 
         // Swap on current state.
@@ -62,10 +55,9 @@ public strictfp class DeliveryDrone extends Unit {
                 case ROAMING: trans = this.roaming(rc); break;
             }
 
-            // Reset transient miner state.
+            // Reset transient state.
             if (this.state != trans.target) {
                 this.pathfinder = null;
-                this.pathfindSteps = 0;
             }
 
             this.state = trans.target;
@@ -73,9 +65,8 @@ public strictfp class DeliveryDrone extends Unit {
         } while (!madeAction);
 
         // Useful for debugging.
-        if (this.pathfinder != null) rc.setIndicatorDot(this.pathfinder.goal(), 255, 0, 0);
+        if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 0, 255, 0);
     }
-
 
     public void scanSurroundings(RobotController rc) throws GameActionException {
         // Water memory; track recently seen water.
@@ -115,11 +106,7 @@ public strictfp class DeliveryDrone extends Unit {
         });
     }
 
-
-
     /** Implements roaming behavior, where the drone roams until it finds an enemy somewhere. */
-    //TODO allow drones to roam on water (though should maybe favor roaming on land to find enemies?)
-    //Because drones are using BugPathfinder to roam, they don't realize they can roam over water. It's very sad.
     public Transition roaming(RobotController rc) throws GameActionException {
         boolean isWaterToGoTo = false;
         for (MapLocation loc : waterReps) {
@@ -129,7 +116,7 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        //Check if carrying anything. If so, transition to dunking.
+        // Check if carrying anything. If so, transition to dunking.
         if (rc.isCurrentlyHoldingUnit() && isWaterToGoTo) {
             return new Transition(DroneState.DUNKING, false);
         }
@@ -148,20 +135,17 @@ public strictfp class DeliveryDrone extends Unit {
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation())) {
             // TODO: More intelligent target selection. We choose randomly for now.
             // Suggestion: Drone remembers where it last picked enemy up and goes back. If nobody there, roam randomly.
-
             MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
 
             this.pathfinder = this.newPathfinder(target, true);
         }
 
         // Obtain a movement from the pathfinder and follow it.
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
         if (move != null && move != Direction.CENTER) rc.move(move);
-        this.pathfindSteps++;
 
         return new Transition(DroneState.ROAMING, true);
     }
-
 
     /** Travel behavior, where a drone travels to a known water location to dunk. */
     public Transition dunking(RobotController rc) throws GameActionException {
@@ -199,16 +183,12 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-
-
         // Obtain a movement from the pathfinder and follow it.
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
         if (move != null && move != Direction.CENTER) rc.move(move);
-        this.pathfindSteps++;
 
         return new Transition(DroneState.DUNKING, true);
     }
-
 
     public Transition chasing(RobotController rc) throws GameActionException {
         boolean isWaterToGoTo = false;
@@ -247,16 +227,15 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        //This if statement shouldn't trigger.
-        //If something goes wrong finding a nearby enemy's location, this should trigger and send the drone north.
+        // This if statement shouldn't trigger.
+        // If something goes wrong finding a nearby enemy's location, this should trigger and send the drone north.
         if (closestEnemyDist == 500) {
             closestEnemyLoc = droneLoc.add(Direction.NORTH);
         }
 
-        //Todo implement better chasing movement
+        // TODO: Implement better chasing movement
         
-        //Drone tries to move directly towards target. If it can't, it moves one off left or right.
-        //If none of those three works, it moves the first direction it can.
+        // Drone tries to move directly towards target. If it can't, moves the first direction it can.
         Direction straightToClosest = droneLoc.directionTo(closestEnemyLoc);
         if (rc.canMove(straightToClosest)) {
             rc.move(straightToClosest);
@@ -277,12 +256,7 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        //If we get to here, something is wrong. Go to roaming and hope things work out.
+        // If we get to here, something is wrong. Go to roaming and hope things work out.
         return new Transition(DroneState.ROAMING,false);
     }
-
-
-
-
-
 }

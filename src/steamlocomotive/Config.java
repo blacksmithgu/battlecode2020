@@ -16,7 +16,7 @@ public class Config {
     // MINER CONFIG
 
     /** Minimum distance we have to be away from a known refinery to build a new one. */
-    public static int REFINERY_MIN_DISTANCE = 36;
+    public static int REFINERY_MIN_DISTANCE = 49;
 
     /**
      * The amount of soup in inventory before the miner should return.
@@ -37,4 +37,14 @@ public class Config {
      * The total number of miners that HQ builds, and then stops.
      */
     public static int MAX_NUM_MINERS = 8;
+
+    /**
+     * The round the HQ decides how to build the wall around itself
+     */
+    public static int PLAN_WALL = 50;
+
+    /**
+     * The maximum distance a unit will roam before picking a new roam target.
+     */
+    public static int MAX_ROAM_DISTANCE = 30;
 }

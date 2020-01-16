@@ -37,8 +37,8 @@ public class Miner extends Unit {
     private BugPathfinder pathfinder;
     // The number of steps that have been taken while pathfinding.
     private int pathfindSteps;
-    // Contains up to TRACKED_SOUP_COUNT valid soup representatives we can visit.
-    private MapLocation[] soupReps;
+    // Clusters seen soup locations.
+    private Utils.Clusterer soups;
     // The location of the HQ we are dumping resources at.
     private MapLocation refinery;
 
@@ -46,9 +46,9 @@ public class Miner extends Unit {
         super(id);
         this.pathfinder = null;
         this.pathfindSteps = 0;
-        this.soupReps = new MapLocation[Config.TRACKED_SOUP_COUNT];
         this.refinery = null;
         this.state = MinerState.ROAMING;
+        this.soups = new Utils.Clusterer(Config.TRACKED_SOUP_COUNT, Config.REPRESENTATIVE_THRESHOLD);
     }
 
     @Override
@@ -81,58 +81,26 @@ public class Miner extends Unit {
         } while (!madeAction);
 
         // Useful for debugging.
-        if (this.pathfinder != null) rc.setIndicatorDot(this.pathfinder.goal(), 255, 0, 0);
+        if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 0, 255, 0);
     }
 
     /** Update soup cluster and dropoff state. */
     public void scanSurroundings(RobotController rc) throws GameActionException {
-        // Look for new refineries.
-        int refineDistance = refinery.distanceSquaredTo(rc.getLocation());
-        for (RobotInfo info : rc.senseNearbyRobots(-1, rc.getTeam())) {
-            if (info.getType() != RobotType.REFINERY) continue;
-
-            MapLocation loc = info.getLocation();
-            int newDistance = loc.distanceSquaredTo(rc.getLocation());
-            if (newDistance < refineDistance) {
-                refineDistance = newDistance;
-                refinery = loc;
-            }
-        }
+        // Update the closest refinery.
+        Utils.ClosestRobot closeRefinery = Utils.closestRobot(rc, RobotType.REFINERY, rc.getTeam());
+        int refineDistance = this.refinery == null ? Integer.MAX_VALUE : this.refinery.distanceSquaredTo(rc.getLocation());
+        if (closeRefinery.distance < refineDistance) this.refinery = closeRefinery.robot.getLocation();
 
         // Check and clear representatives if they are no longer present.
-        for (int i = 0; i < soupReps.length; i++) {
-            MapLocation rep = soupReps[i];
-            if (rep != null && rc.canSenseLocation(rep) && (rc.senseSoup(rep) <= 0 || rc.senseFlooding(rep))) {
-                soupReps[i] = null;
-            }
-        }
+        this.soups.clearInvalid(rc, loc -> rc.canSenseLocation(loc) && !rc.senseFlooding(loc) && rc.senseSoup(loc) > 0);
 
         // Soup memory; track recently seen soup clusters.
-        Utils.traverseSensable(rc, loc -> {
-            int soup = rc.senseSoup(loc);
-            if (soup == 0) return;
-            if (rc.senseFlooding(loc)) return;
-
-            // Ignore soup which is already close to a representative.
-            for (int i = 0; i < soupReps.length; i++) {
-                MapLocation rep = soupReps[i];
-                if (rep != null && loc.distanceSquaredTo(rep) <= Config.REPRESENTATIVE_THRESHOLD) {
-                    // TODO: Swap out for closer soup for more optimal pathfinding.
-                    return;
-                }
-            }
-
-            // Try to designate as a representative. If there is a slot, fill it.
-            for (int i = 0; i < soupReps.length; i++) {
-                if(soupReps[i] == null) {
-                    soupReps[i] = loc;
-                    return;
-                }
-            }
-
-            // Otherwise replace randomly.
-            this.soupReps[this.rng.nextInt(Config.TRACKED_SOUP_COUNT)] = loc;
-        });
+        MapLocation[] sensedSoup = rc.senseNearbySoup();
+        for (int i = 0; i < sensedSoup.length; i++) {
+            MapLocation soupLoc = sensedSoup[i];
+            if (rc.canSenseLocation(soupLoc) && rc.senseFlooding(soupLoc)) continue;
+            this.soups.update(rc, soupLoc, this.rng);
+        }
     }
 
     /** Implements roaming behavior, where the miner roams until it finds soup somewhere. */
@@ -140,16 +108,15 @@ public class Miner extends Unit {
         // TODO: Roaming targets may be unreachable, so choose a new target after X steps.
 
         // If there is nonzero soup we are aware of, transition to traveling to it.
-        for (int i = 0; i < soupReps.length; i++) {
-            if (soupReps[i] != null) return new Transition(MinerState.TRAVEL, false);
-        }
+        if (soups.hasCluster()) return new Transition(MinerState.TRAVEL, false);
 
         // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
-        if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation())) {
+        if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
             // TODO: More intelligent target selection. We choose randomly for now.
             MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
 
             this.pathfinder = this.newPathfinder(target, true);
+            this.pathfindSteps = 0;
         }
 
         // Obtain a movement from the pathfinder and follow it.
@@ -188,16 +155,7 @@ public class Miner extends Unit {
 
         // If no pathfinder, create it to the closest soup.
         if (this.pathfinder == null) {
-            MapLocation closest = soupReps[0];
-            int bestDistance = soupReps[0] == null ? Integer.MAX_VALUE : closest.distanceSquaredTo(rc.getLocation());
-            for (int i = 1; i < soupReps.length; i++) {
-                if (soupReps[i] == null) continue;
-                int dist = soupReps[i].distanceSquaredTo(rc.getLocation());
-                if (dist >= bestDistance) continue;
-
-                closest = soupReps[i];
-                bestDistance = dist;
-            }
+            MapLocation closest = soups.closest(rc.getLocation());
 
             // If there is no soup, cry a little and roam.
             if (closest == null) {
@@ -234,11 +192,14 @@ public class Miner extends Unit {
             Direction toRefinery = rc.getLocation().directionTo(this.refinery);
             // If we can drop off, do it.
             if (rc.canDepositSoup(toRefinery)) {
-                // TODO: This is an action - do we need to mark transitions as turn terminating?
                 rc.depositSoup(toRefinery, rc.getSoupCarrying());
+
+                // Build a fulfillment center if necessary.
+                // TODO: Change these into constants.
                 if (rc.getRoundNum() > 200 && rc.getTeamSoup() > 400) {
                     return new Transition(MinerState.DREAMING_ABOUT_FULFILLMENT, true);
                 }
+
                 return new Transition(MinerState.TRAVEL, true);
             } else {
                 // No refinery is where we thought it was anymore. Start roaming around looking for a refinery.
@@ -263,7 +224,6 @@ public class Miner extends Unit {
         if (rc.getLocation().distanceSquaredTo(refinery) < Config.REFINERY_MIN_DISTANCE) return new Transition(MinerState.DROPOFF, false);
 
         // Alright, it's time to build.
-        boolean built = false;
         for (Direction adj : Direction.allDirections()) {
             if (adj == Direction.CENTER) continue;
             if (rc.canBuildRobot(RobotType.REFINERY, adj)) {
@@ -286,24 +246,13 @@ public class Miner extends Unit {
                 return new Transition(MinerState.TRAVEL, false);
             }
         }
-        //Builds a fulfillment center in a direction that it can. If can't, then transitions to roaming.
-            for (Direction adj : Direction.allDirections()) {
-                if (adj == Direction.CENTER) continue;
-                if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, adj)) {
-                    rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
-                    return new Transition(MinerState.TRAVEL, true);
-                }
-            }
-            //TODO add transitions into building this state
 
-
-        // Alright, it's time to build.
-        boolean built = false;
+        // Builds a fulfillment center in a direction that it can. If can't, then transitions to roaming.
         for (Direction adj : Direction.allDirections()) {
             if (adj == Direction.CENTER) continue;
-            if (rc.canBuildRobot(RobotType.REFINERY, adj)) {
-                rc.buildRobot(RobotType.REFINERY, adj);
-                return new Transition(MinerState.DROPOFF, true);
+            if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, adj)) {
+                rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
+                return new Transition(MinerState.TRAVEL, true);
             }
         }
 
@@ -311,20 +260,13 @@ public class Miner extends Unit {
         return new Transition(MinerState.DROPOFF, false);
     }
 
-
-
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
         // Search for HQ/refinery for our initial dropoff. This may change in the future.
-        for (RobotInfo info : rc.senseNearbyRobots(-1, rc.getTeam())) {
-            if (info.getType() == RobotType.HQ || info.getType() == RobotType.REFINERY) {
-                this.refinery = info.getLocation();
-                break;
-            }
-        }
-
-        if (this.refinery == null) {
+        RobotInfo refine = Utils.closestRobot(rc, robot -> robot.getType() == RobotType.REFINERY || robot.getType() == RobotType.HQ, rc.getTeam()).robot;
+        if (refine == null)
             throw new IllegalStateException("This miner has nowhere to drop off materials!");
-        }
+
+        this.refinery = refine.getLocation();
     }
 }
