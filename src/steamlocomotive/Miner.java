@@ -81,7 +81,7 @@ public class Miner extends Unit {
         } while (!madeAction);
 
         // Useful for debugging.
-        if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 0, 255, 0);
+        if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 255, 0, 0);
     }
 
     /** Update soup cluster and dropoff state. */
