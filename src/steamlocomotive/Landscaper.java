@@ -22,45 +22,45 @@ public class Landscaper extends Unit {
     private Bitconnect.HQSurroundings wallLocations;
 
 
-
     public Landscaper(int id) {
         super(id);
     }
 
     @Override
-    public void run(RobotController rc, int turn) throws GameActionException{
+    public void run(RobotController rc, int turn) throws GameActionException {
         //if wall builder, move towards one of the desired locations
 
-        if (inPosition == false){
+        if (inPosition == false) {
             //check if in position
             MapLocation pos = rc.getLocation();
-            for (int i = 1; i <= wallLocations.adjacentWallSpots.length; i++){
-                if (pos.equals(wallLocations.adjacentWallSpots[i])){
+            for (int i = 1; i <= wallLocations.adjacentWallSpots.length; i++) {
+                if (pos.equals(wallLocations.adjacentWallSpots[i])) {
                     inPosition = true;
                 }
             }
-        if (inPosition = true){
-            Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
-            if (!rc.canDigDirt(digFrom)){
-                for (Direction direction : Direction.allDirections()){
-                    if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction)){
-                        digFrom = direction;
-                        break;
+            if (inPosition = true) {
+                Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
+                if (!rc.canDigDirt(digFrom)) {
+                    for (Direction direction : Direction.allDirections()) {
+                        if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction)) {
+                            digFrom = direction;
+                            break;
+                        }
                     }
                 }
-            }
-            if (turn%2==0){
-                rc.digDirt(digFrom);
-            } else {
-                if (rc.canDepositDirt(Direction.CENTER)){
-                    rc.depositDirt(Direction.CENTER);
+                if (turn % 2 == 0) {
+                    rc.digDirt(digFrom);
+                } else {
+                    if (rc.canDepositDirt(Direction.CENTER)) {
+                        rc.depositDirt(Direction.CENTER);
+                    }
                 }
             }
         }
     }
 
-    public void onCreation(RobotController rc){
-        comms = new Bitconnect(rc.getMapWidth(),rc.getMapHeight());
+    public void onCreation(RobotController rc) {
+        comms = new Bitconnect(rc.getMapWidth(), rc.getMapHeight());
         wallLocations = comms.getWallLocations(rc);
     }
 }
