@@ -116,6 +116,7 @@ public class Miner extends Unit {
             MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
 
             this.pathfinder = this.newPathfinder(target, true);
+            this.pathfindSteps = 0;
         }
 
         // Obtain a movement from the pathfinder and follow it.
