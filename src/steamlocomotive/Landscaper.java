@@ -19,7 +19,7 @@ public class Landscaper extends Unit {
     private MapLocation enemyHQLoc;
 
     //wall locations
-    private MapLocation[] wallLocations;
+    private Bitconnect.HQSurroundings wallLocations;
 
 
 
@@ -34,8 +34,8 @@ public class Landscaper extends Unit {
         if (inPosition == false){
             //check if in position
             MapLocation pos = rc.getLocation();
-            for (int i = 1; i <= wallLocations.length; i++){
-                if (pos.equals(wallLocations[i])){
+            for (int i = 1; i <= wallLocations.adjacentWallSpots.length; i++){
+                if (pos.equals(wallLocations.adjacentWallSpots[i])){
                     inPosition = true;
                 }
             }
@@ -61,6 +61,6 @@ public class Landscaper extends Unit {
 
     public void onCreation(RobotController rc){
         comms = new Bitconnect(rc.getMapWidth(),rc.getMapHeight());
-        wallLocations = comms.getLandscaperLocations(rc);
+        wallLocations = comms.getWallLocations(rc);
     }
 }
