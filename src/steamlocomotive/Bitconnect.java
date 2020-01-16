@@ -24,17 +24,6 @@ public class Bitconnect {
     }
 
     /**
-     * get a bit at an index of an integer
-     */
-    private boolean getBit(int integer, int index) {
-        return (integer >> index) % 2 == 1;
-    }
-
-    private int setBit(int integer, int index, boolean value) {
-        return value ? integer | (1 << index) : integer & ~(1 << index);
-    }
-
-    /**
      * verify that a checksum is valid for a message of 6 ints
      */
     private boolean correctChecksum(int[] message, int checksum) {
@@ -66,5 +55,19 @@ public class Bitconnect {
      * assumed that map locations are a subset of a 3x3 grid with the center as center
 \    */
     public void sendLandscaperLocations(RobotController rc, HQSurroundings surroundings) {
+    }
+
+    /**
+     * Get a bit at an index of an integer.
+     */
+    public static boolean getBit(int integer, int index) {
+        return (integer >> index) % 2 == 1;
+    }
+
+    /**
+     * Set the bit at an index of an integer, returning the modified integer.
+     */
+    public static int setBit(int integer, int index, boolean value) {
+        return value ? integer | (1 << index) : integer & ~(1 << index);
     }
 }

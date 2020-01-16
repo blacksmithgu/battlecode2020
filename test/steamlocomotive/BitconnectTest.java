@@ -1,18 +1,14 @@
 package steamlocomotive;
 
-
 import org.junit.Test;
-
-import static org.junit.Assert.assertThat;
-
+import static org.junit.Assert.*;
 
 class BitconnectTest {
 
     @Test
     public void testBitsetting() {
-        Bitconnect bitconnect = new Bitconnect(100,100);
-        assert(bitconnect.getBit(1,0));
-        assert(bitconnect.getBit(bitconnect.setBit(0, 10, true), 10));
-        assert(!bitconnect.getBit(bitconnect.setBit(1, 0, false), 0));
+        assertTrue(Bitconnect.getBit(1,0));
+        assertTrue(Bitconnect.getBit(Bitconnect.setBit(0, 10, true), 10));
+        assertFalse(Bitconnect.getBit(Bitconnect.setBit(1, 0, false), 0));
     }
 }
