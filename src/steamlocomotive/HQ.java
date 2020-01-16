@@ -13,6 +13,9 @@ public class HQ extends Unit {
     // Number of miners which have been spawned.
     private int numMiners = 0;
 
+    // Spots for the wall
+    private List<MapLocation> wallSpots = new ArrayList<>();
+
     public HQ(int id) {
         super(id);
     }
@@ -85,5 +88,22 @@ public class HQ extends Unit {
             rc.buildRobot(RobotType.MINER, desired);
             this.numMiners += 1;
         }
+        //plan out where the wall should go
+        if (rc.getRoundNum() == Config.PLAN_WALL){
+            for (int xOffset = -1; xOffset <=1; xOffset++){
+                for (int yOffset = -1; yOffset <=1; yOffset++){
+                    if (xOffset!=0 || yOffset!=0){
+                        MapLocation loc = rc.getLocation();
+                        loc = new MapLocation(loc.x+xOffset,loc.y+yOffset);
+                        if (rc.onTheMap(loc)){
+                            wallSpots.add(loc);
+                        }
+                    }
+                }
+            }
+
+            //send out communication message with the locations for the walls of the base
+        }
+
     }
 }

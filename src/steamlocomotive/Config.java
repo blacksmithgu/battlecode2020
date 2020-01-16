@@ -37,4 +37,9 @@ public class Config {
      * The total number of miners that HQ builds, and then stops.
      */
     public static int MAX_NUM_MINERS = 8;
+
+    /**
+     * The round the HQ decides how to build the wall around itself
+     */
+    public static int PLAN_WALL = 50;
 }
