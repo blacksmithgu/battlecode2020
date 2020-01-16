@@ -87,6 +87,12 @@ dependencies {
     client group: 'org.battlecode', name: clientName, version: versions.battlecode
 }
 
+test {
+    testLogging {
+        exceptionFormat = 'full'
+    }
+}
+
 // Eclipse specific setup to enable docs and sources, and configure layout.
 eclipse {
     classpath {
