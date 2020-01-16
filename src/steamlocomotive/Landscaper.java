@@ -38,24 +38,26 @@ public class Landscaper extends Unit {
                     inPosition = true;
                 }
             }
-            if (inPosition = true) {
-                Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
-                if (!rc.canDigDirt(digFrom)) {
-                    for (Direction direction : Direction.allDirections()) {
-                        if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction)) {
-                            digFrom = direction;
-                            break;
-                        }
-                    }
-                }
-                if (turn % 2 == 0) {
-                    rc.digDirt(digFrom);
-                } else {
-                    if (rc.canDepositDirt(Direction.CENTER)) {
-                        rc.depositDirt(Direction.CENTER);
+        }
+        if (inPosition = true) {
+            Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
+            if (!rc.canDigDirt(digFrom)) {
+                for (Direction direction : Direction.allDirections()) {
+                    if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction)) {
+                        digFrom = direction;
+                        break;
                     }
                 }
             }
+            if (turn % 2 == 0) {
+                rc.digDirt(digFrom);
+            } else {
+                if (rc.canDepositDirt(Direction.CENTER)) {
+                    rc.depositDirt(Direction.CENTER);
+                }
+            }
+        } else {
+            //move to position
         }
     }
 
