@@ -3,7 +3,7 @@ package steamlocomotive;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-class BitconnectTest {
+public class BitconnectTest {
 
     @Test
     public void testBitsetting() {
