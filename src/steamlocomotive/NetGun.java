@@ -10,27 +10,18 @@ public class NetGun extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
-        //Look for enemy robots. Identify closest drone. Shoot it down.
-        MapLocation netgunLoc = rc.getLocation();
-        RobotInfo closestDrone = rc.senseRobot(rc.getID());
-        int closestEnemyDist = 500;
-        RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        int enemyDist;
-        for (RobotInfo nearbyEnemy : enemyRobots) {
-            if (nearbyEnemy.type == RobotType.DELIVERY_DRONE) {
-                enemyDist = netgunLoc.distanceSquaredTo(nearbyEnemy.location);
-                if (enemyDist < closestEnemyDist) {
-                    closestEnemyDist = enemyDist;
-                    closestDrone = nearbyEnemy;
-                }
-            }
-        }
-        if (rc.canShootUnit(closestDrone.ID) && closestDrone.type == RobotType.DELIVERY_DRONE) {
-            rc.shootUnit(closestDrone.ID);
-            //System.out.println("I have entered the drone shooting if statement.");
-            return;
+        NetGun.findAndShoot(rc);
+    }
+
+    public static boolean findAndShoot(RobotController rc) throws GameActionException {
+        Utils.ClosestRobot closestEnemy = Utils.closestRobot(rc,
+                robot -> robot.type == RobotType.DELIVERY_DRONE && rc.canShootUnit(robot.getID()), rc.getTeam().opponent());
+
+        if (closestEnemy.robot != null) {
+            rc.shootUnit(closestEnemy.robot.getID());
+            return true;
         }
 
-        return;
+        return false;
     }
 }

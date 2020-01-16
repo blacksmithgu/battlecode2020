@@ -9,20 +9,18 @@ public class Bitconnect {
     // height of the map
     final int height;
 
+    public class HQSurroundings {
+        MapLocation hq;
+        MapLocation[] adjacentWallSpots;
+        public HQSurroundings(MapLocation hq, MapLocation[] adjacentWallSpots) {
+            this.hq = hq;
+            this.adjacentWallSpots = adjacentWallSpots;
+        }
+    }
+
     public Bitconnect(int width, int height) {
         this.width = width;
         this.height = height;
-    }
-
-    /**
-     * get a bit at an index of an integer
-     */
-    private boolean getBit(int integer, int index) {
-        return (integer >> index) % 2 == 1;
-    }
-
-    private int setBit(int integer, int index, boolean value) {
-        return value ? integer | (1 << index) : integer & ~(1 << index);
     }
 
     /**
@@ -46,14 +44,30 @@ public class Bitconnect {
         return 0;
     }
 
-    public MapLocation[] getLandscaperLocations(RobotController rc) {
+    /**
+     *
+     */
+    public HQSurroundings getWallLocations(RobotController rc) {
         return null;
     }
 
     /**
      * assumed that map locations are a subset of a 3x3 grid with the center as center
 \    */
-    public void sendLandscaperLocations(RobotController rc, MapLocation center, MapLocation[] mapLocations) {
+    public void sendLandscaperLocations(RobotController rc, HQSurroundings surroundings) {
+    }
 
+    /**
+     * Get a bit at an index of an integer.
+     */
+    public static boolean getBit(int integer, int index) {
+        return (integer >> index) % 2 == 1;
+    }
+
+    /**
+     * Set the bit at an index of an integer, returning the modified integer.
+     */
+    public static int setBit(int integer, int index, boolean value) {
+        return value ? integer | (1 << index) : integer & ~(1 << index);
     }
 }
