@@ -5,7 +5,7 @@ import battlecode.common.*;
 import java.util.List;
 
 public strictfp class DeliveryDrone extends Unit {
-    //TODO implement behavior where drones carry miners to and from unreachable soup (e.g. TwoForOneAndTwoForAll)
+    //TODO implement behavior where drones carry miners to unreachable soup (e.g. TwoForOneAndTwoForAll)
     //TODO implement interactions with cows (drowning them, dropping them on enemies, or both)
     //TODO make drones stay out of range of enemy net shooters and HQ
 
@@ -81,7 +81,17 @@ public strictfp class DeliveryDrone extends Unit {
         // Water memory; track recently seen water.
         Utils.traverseSensable(rc, loc -> {
             boolean isFlooding = rc.senseFlooding(loc);
-            if (!isFlooding) return;
+
+            //If a representative has become unflooded, get rid of it.
+            //Ignore other unflooded tiles.
+            if (!isFlooding) {
+                for (int i = 0; i < waterReps.length; i++) {
+                    if(waterReps[i] == loc) {
+                        waterReps[i] = null;
+                    }
+                }
+                return;
+            }
 
             // Ignore water which is already close to a representative.
             for (int i = 0; i < waterReps.length; i++) {
@@ -99,7 +109,6 @@ public strictfp class DeliveryDrone extends Unit {
                 }
             }
 
-            //TODO remove representatives from waterReps if they are no longer flooded
 
             // Otherwise replace randomly.
             this.waterReps[this.rng.nextInt(Config.TRACKED_SOUP_COUNT)] = loc;
@@ -109,7 +118,7 @@ public strictfp class DeliveryDrone extends Unit {
 
 
     /** Implements roaming behavior, where the drone roams until it finds an enemy somewhere. */
-    //TODO allow drones to roam on water (though should maybe favor roaming on land to find targets?)
+    //TODO allow drones to roam on water (though should maybe favor roaming on land to find enemies?)
     //Because drones are using BugPathfinder to roam, they don't realize they can roam over water. It's very sad.
     public Transition roaming(RobotController rc) throws GameActionException {
         boolean isWaterToGoTo = false;
@@ -246,12 +255,19 @@ public strictfp class DeliveryDrone extends Unit {
 
         //Todo implement better chasing movement
         
-        //Drone tries to move directly towards target. If it can't, moves the first direction it can.
+        //Drone tries to move directly towards target. If it can't, it moves one off left or right.
+        //If none of those three works, it moves the first direction it can.
         Direction straightToClosest = droneLoc.directionTo(closestEnemyLoc);
         if (rc.canMove(straightToClosest)) {
             rc.move(straightToClosest);
             return new Transition(DroneState.CHASING, true);
-        } else {
+        } else if (rc.canMove(straightToClosest.rotateLeft())) {
+            rc.move(straightToClosest.rotateLeft());
+            return new Transition(DroneState.CHASING, true);
+        } else if (rc.canMove(straightToClosest.rotateRight())) {
+            rc.move(straightToClosest.rotateRight());
+            return new Transition(DroneState.CHASING, true);
+        }else {
             for (Direction adj : Direction.allDirections()) {
                 if (adj == Direction.CENTER) continue;
                 if (rc.canMove(adj)) {
