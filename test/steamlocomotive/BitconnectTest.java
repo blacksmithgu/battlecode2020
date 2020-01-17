@@ -7,6 +7,8 @@ import battlecode.common.Transaction;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import java.util.Arrays;
+
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.anyInt;
 
@@ -27,6 +29,9 @@ public class BitconnectTest {
         Bitconnect bitconnect = new Bitconnect(rc, 10, 10);
         Bitconnect.HQSurroundings surroundings = new Bitconnect.HQSurroundings(new MapLocation(1,2), new MapLocation[0]);
         Bitconnect.Block block = bitconnect.sendLandscaperLocations(rc, surroundings);
+        int[] expectedBlock = {42,1,2,0,0,0,0};
+        Bitconnect.Block expected = Bitconnect.Block.extractBlock(expectedBlock);
+        assertTrue(Arrays.equals(expected.content, block.content));
         Bitconnect.HQSurroundings result = Bitconnect.HQSurroundings.fromMessage(block);
         System.out.println(result);
         assertTrue(surroundings.equals(result));
