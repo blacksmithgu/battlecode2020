@@ -145,8 +145,8 @@ public class Landscaper extends Unit {
         return false;
     }
 
-    public void onCreation(RobotController rc) {
-        comms = new Bitconnect(rc.getMapWidth(), rc.getMapHeight());
+    public void onCreation(RobotController rc) throws GameActionException {
+        comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
         wallLocations = comms.getWallLocations(rc);
         enemyHQLoc = wallLocations.hq;
     }

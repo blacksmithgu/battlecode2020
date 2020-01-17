@@ -11,4 +11,9 @@ public class BitconnectTest {
         assertTrue(Bitconnect.getBit(Bitconnect.setBit(0, 10, true), 10));
         assertFalse(Bitconnect.getBit(Bitconnect.setBit(1, 0, false), 0));
     }
+
+    @Test
+    public void TestHQWallCode() {
+
+    }
 }
