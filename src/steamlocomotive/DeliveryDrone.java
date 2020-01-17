@@ -89,9 +89,18 @@ public strictfp class DeliveryDrone extends Unit {
                     waterDistance[0] = dist;
                 }
             }
+
+            //Update soup representatives
+            //Update cow representatives
+            //Update enemy representatives?
+            //Update friendly miner representatives
+            //Update friendly refinery locations
+
+            //Update friendly HQ location
+            //Update enemy HQ location
         });
 
-        // Scan for soup with no nearby miners.
+        // TODO: Scan for soup with no nearby miners.
     }
 
     /** Implements roaming behavior, where the drone roams until it finds an enemy somewhere. */

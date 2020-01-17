@@ -47,4 +47,9 @@ public class Config {
      * The maximum distance a unit will roam before picking a new roam target.
      */
     public static int MAX_ROAM_DISTANCE = 30;
+
+    /**
+     * The amount of soup for coms
+     */
+    public static int SOUP_FOR_COMS = 10;
 }
