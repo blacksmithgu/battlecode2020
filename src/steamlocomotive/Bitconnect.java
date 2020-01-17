@@ -88,6 +88,26 @@ public class Bitconnect {
             }
             return new HQSurroundings(hq, locations);
         }
+
+        public boolean equals(HQSurroundings other) {
+            if(other == null) {
+                return false;
+            }
+            if(!this.hq.equals(other.hq)) {
+                return false;
+            }
+            for(MapLocation location: this.adjacentWallSpots) {
+                if(!this.listContainsLocation(other.adjacentWallSpots, location)) {
+                    return false;
+                }
+            }
+            for(MapLocation location: other.adjacentWallSpots) {
+                if(!this.listContainsLocation(this.adjacentWallSpots, location)) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 
     public static class Block {
@@ -127,7 +147,7 @@ public class Bitconnect {
         }
 
         private static int getChecksum(int[] content) {
-            return content[6];
+            return 0;
         }
 
         /**
@@ -158,13 +178,13 @@ public class Bitconnect {
         }
     }
 
-    private int[] sendMessage(RobotController rc, Block block) throws GameActionException {
+    private Block sendMessage(RobotController rc, Block block) throws GameActionException {
         if (rc.getTeamSoup() > Config.SOUP_FOR_COMS) {
             rc.submitTransaction(block.getMessage(), Config.SOUP_FOR_COMS);
-            return block.getMessage();
+            return block;
         } else if (rc.getTeamSoup() > 0) {
             rc.submitTransaction(block.getMessage(), rc.getTeamSoup());
-            return block.getMessage();
+            return block;
         }
         return null;
     }
@@ -212,7 +232,7 @@ public class Bitconnect {
     /**
      * sends a map of the HQ and desired wall locations.
      */
-    public int[] sendLandscaperLocations(RobotController rc, HQSurroundings surroundings) throws GameActionException {
+    public Block sendLandscaperLocations(RobotController rc, HQSurroundings surroundings) throws GameActionException {
         return this.sendMessage(rc, surroundings.toMessage());
     }
 
