@@ -2,6 +2,8 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
+import java.awt.*;
+
 public strictfp class DeliveryDrone extends Unit {
     //TODO implement behavior where drones carry miners to unreachable soup (e.g. TwoForOneAndTwoForAll)
     //TODO implement interactions with cows (drowning them, dropping them on enemies, or both)
@@ -32,11 +34,33 @@ public strictfp class DeliveryDrone extends Unit {
     private BugPathfinder pathfinder;
     // The closest water we've seen for dunking.
     private MapLocation closestWater;
+    // The closest enemy landscaper or miner that we've seen, for dunking
+    private MapLocation closestEnemyLandUnit;
+    // The closest cow that we've seen (that isn't already close to enemy HQ)
+    private MapLocation closestCow;
+    // The closest soup we've seen that seems inaccessible to friendly miners
+    private MapLocation closestHardSoup;
+    // The closest friendly miner that we've seen
+    private MapLocation closestFriendlyMiner;
+    // The elevation of the closest friendly miner
+    private int closestFriendlyMinerElevation;
+    // Our team's HQ location
+    private MapLocation friendlyHQLoc;
+    // Enemy team's HQ location
+    private MapLocation enemyHQLoc;
+
 
     public DeliveryDrone(int id) {
         super(id);
         this.pathfinder = null;
         this.closestWater = null;
+        this.closestEnemyLandUnit = null;
+        this.closestCow = null;
+        this.closestHardSoup = null;
+        this.closestFriendlyMiner = null;
+        this.closestFriendlyMinerElevation = 0;
+        this.friendlyHQLoc = null;
+        this.enemyHQLoc = null;
         this.state = DroneState.ROAMING;
     }
 
@@ -74,14 +98,18 @@ public strictfp class DeliveryDrone extends Unit {
             closestWater = null;
         }
 
-        // If you're wondering why the wierd array gimmick, it's so we can use this
+        // If you're wondering why the weird array gimmick, it's so we can use this
         // inside the lambda. Unfortunate, yes.
         // TODO: Optimize this away by inlining traverse sensable.
         int[] waterDistance = new int[] { this.closestWater == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestWater) };
+        int[] cowDistance = new int[] { this.closestCow == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestCow) };
+        int[] enemyLandUnitDistance = new int[] { this.closestEnemyLandUnit == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestEnemyLandUnit) };
+        int[] friendlyMinerDistance = new int[] { this.closestFriendlyMiner == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestFriendlyMiner) };
+        int[] hardSoupDistance = new int[] { this.closestHardSoup == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestHardSoup) };
 
         // Scan the sensable area for water for some dunking/fun in the sun action.
         Utils.traverseSensable(rc, loc -> {
-            // Update the closest water tile.
+            // Update the closest water tile
             if (rc.senseFlooding(loc)) {
                 int dist = loc.distanceSquaredTo(rc.getLocation());
                 if (dist < waterDistance[0]) {
@@ -89,17 +117,63 @@ public strictfp class DeliveryDrone extends Unit {
                     waterDistance[0] = dist;
                 }
             }
+            else {
+                //Update locations of robots and cows
+                RobotInfo nearbyRobot = rc.senseRobotAtLocation(loc);
+                if (nearbyRobot != null) {
+                    if (nearbyRobot.type == RobotType.COW) {
+                        int dist = loc.distanceSquaredTo(rc.getLocation());
+                        if (dist < cowDistance[0]) {
+                            this.closestCow = loc;
+                            cowDistance[0] = dist;
+                        }
+                    }
+                    else if (nearbyRobot.team != rc.getTeam()) {
+                        if (nearbyRobot.type == RobotType.MINER || nearbyRobot.type == RobotType.LANDSCAPER) {
+                            int dist = loc.distanceSquaredTo(rc.getLocation());
+                            if (dist < enemyLandUnitDistance[0]) {
+                                this.closestEnemyLandUnit = loc;
+                                enemyLandUnitDistance[0] = dist;
+                            }
+                        }
+                        else if (nearbyRobot.type == RobotType.HQ && this.enemyHQLoc == null) {
+                            this.enemyHQLoc = nearbyRobot.location;
+                        }
+                    }
+                    else if (nearbyRobot.type == RobotType.MINER) {
+                        int dist = loc.distanceSquaredTo(rc.getLocation());
+                        if (dist < friendlyMinerDistance[0]) {
+                            this.closestFriendlyMiner = loc;
+                            friendlyMinerDistance[0] = dist;
+                            closestFriendlyMinerElevation = rc.senseElevation(loc);
+                        }
+                    }
+                    else if (nearbyRobot.type == RobotType.HQ && this.friendlyHQLoc == null) {
+                        this.friendlyHQLoc = nearbyRobot.location;
+                    }
+                }
+                else if (rc.senseSoup(loc) > 0 && seemsInaccessible(rc, loc)) {
+                    //TODO: Account for soup that is in water, but adjacent to land that's inaccessible to miners
+                    int dist = loc.distanceSquaredTo(rc.getLocation());
+                    if (dist < hardSoupDistance[0]) {
+                        this.closestHardSoup = loc;
+                        hardSoupDistance[0] = dist;
+                    }
+                }
+            }
 
             //Update soup representatives
-            //Update cow representatives
-            //Update enemy representatives?
-            //Update friendly miner representatives
-            //Update friendly refinery locations
 
-            //Update friendly HQ location
-            //Update enemy HQ location
+
         });
 
+//        if (closestHardSoup != null) {
+//            System.out.println("Hard soup at " + closestHardSoup);
+//        }
+
+        //System.out.println("Closest friendly miner elevation is " + closestFriendlyMinerElevation);
+
+        System.out.println(Clock.getBytecodesLeft() + "bytecodes left after scanning.");
         // TODO: Scan for soup with no nearby miners.
     }
 
@@ -216,4 +290,11 @@ public strictfp class DeliveryDrone extends Unit {
         // No unit to chase; go to roaming and hope things work out.
         return new Transition(DroneState.ROAMING,false);
     }
+
+    public boolean seemsInaccessible(RobotController rc, MapLocation loc) throws GameActionException {
+        //Returns true iff loc contains soup and it seems like miners may need help getting to it
+        //TODO:  Write this function
+        return true;
+    }
+
 }
