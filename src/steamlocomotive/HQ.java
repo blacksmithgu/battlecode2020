@@ -29,6 +29,47 @@ public class HQ extends Unit {
         // Aggressively shoot down enemy drones if they roam too closely.
         NetGun.findAndShoot(rc);
 
+        //plan out where the wall should go
+        if (rc.getRoundNum() == Config.PLAN_WALL) {
+            for (int xOffset = -1; xOffset <= 1; xOffset++) {
+                for (int yOffset = -1; yOffset <= 1; yOffset++) {
+                    if (xOffset != 0 || yOffset != 0) {
+                        MapLocation loc = rc.getLocation();
+                        loc = new MapLocation(loc.x + xOffset, loc.y + yOffset);
+                        if (rc.onTheMap(loc)) {
+                            wallSpots.add(loc);
+                        }
+                    }
+                }
+            }
+
+            //send out communication message with the locations for the walls of the base
+            System.out.println(wallSpots.toString() + " " + wallSpots.size());
+            MapLocation[] adj_spots = new MapLocation[wallSpots.size()];
+            int idx = 0;
+            for (MapLocation loc : wallSpots) {
+                adj_spots[idx] = loc;
+                idx += 1;
+            }
+            Bitconnect.HQSurroundings data = new Bitconnect.HQSurroundings(rc.getLocation(), adj_spots);
+            if (comms == null) {
+                System.out.println("null communications ************");
+            }
+            comms.sendLandscaperLocations(rc, data);
+            System.out.println("HQ sent message");
+        }
+
+        if (turn % 41 == 0) {
+            boolean allDone = true;
+            for (MapLocation loc : wallSpots) {
+                if (!rc.isLocationOccupied(loc)) {
+                    allDone = false;
+                    break;
+                }
+            }
+            comms.wallClaimed(rc);
+        }
+
         // Don't spawn more miners if we've hit our cap.
         if (this.numMiners >= Config.MAX_NUM_MINERS) return;
 
@@ -58,35 +99,7 @@ public class HQ extends Unit {
             rc.buildRobot(RobotType.MINER, desired);
             this.numMiners += 1;
         }
-        //plan out where the wall should go
-        if (rc.getRoundNum() == Config.PLAN_WALL) {
-            for (int xOffset = -1; xOffset <= 1; xOffset++) {
-                for (int yOffset = -1; yOffset <= 1; yOffset++) {
-                    if (xOffset != 0 || yOffset != 0) {
-                        MapLocation loc = rc.getLocation();
-                        loc = new MapLocation(loc.x + xOffset, loc.y + yOffset);
-                        if (rc.onTheMap(loc)) {
-                            wallSpots.add(loc);
-                        }
-                    }
-                }
-            }
 
-            //send out communication message with the locations for the walls of the base
-            System.out.println(wallSpots.toString() + " " + wallSpots.size());
-            MapLocation[] adj_spots = new MapLocation[wallSpots.size()];
-            int idx = 0;
-            for (MapLocation loc : wallSpots) {
-                adj_spots[idx] = loc;
-                idx += 1;
-            }
-            Bitconnect.HQSurroundings data = new Bitconnect.HQSurroundings(rc.getLocation(), adj_spots);
-            if (comms==null){
-                System.out.println("null communications ************");
-            }
-            comms.sendLandscaperLocations(rc, data);
-            System.out.println("HQ sent message");
-        }
     }
 
     public void onCreation(RobotController rc) throws GameActionException {
