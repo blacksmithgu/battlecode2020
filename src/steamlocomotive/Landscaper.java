@@ -1,9 +1,6 @@
 package steamlocomotive;
 
-import battlecode.common.Direction;
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
+import battlecode.common.*;
 
 public class Landscaper extends Unit {
 
@@ -166,7 +163,34 @@ public class Landscaper extends Unit {
     }
 
     public Transition unburyAlly(RobotController rc) throws GameActionException {
-        return new Transition(LandscaperState.BUILD_WALL, true);
+        RobotInfo[] info = rc.senseNearbyRobots();
+        if (info.length==0){
+            return new Transition(LandscaperState.ROAMING, false);
+        }
+        for (RobotInfo rob : info){
+            if (rob.team == rc.getTeam() && rob.type == RobotType.HQ && rob.dirtCarrying>0){
+                if (rc.getLocation().distanceSquaredTo(rob.getLocation())==1){
+                    if (rc.canDepositDirt(rc.getLocation().directionTo(rob.getLocation()))){
+                        rc.depositDirt(rc.getLocation().directionTo(rob.getLocation()));
+                    } else {
+                        if (rc.canDigDirt(rc.getLocation().directionTo(rob.getLocation()).opposite())){
+                            rc.digDirt(rc.getLocation().directionTo(rob.getLocation()).opposite());
+                        } else {
+                            for (Direction direction : Direction.allDirections()) {
+                                if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction)) {
+                                    rc.digDirt(direction);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    pathfinder = this.newPathfinder(rob.location, true);
+                    Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+                    if (move != null && move != Direction.CENTER) rc.move(move);
+                }
+            }
+        }
+        return new Transition(LandscaperState.UNBURY_ALLY, true);
     }
 
     public Transition terraform(RobotController rc) throws GameActionException {
@@ -214,6 +238,7 @@ public class Landscaper extends Unit {
         if (wallLocations == null) {
             System.out.println("Niels my landscapers aren't getting comms");
         }
+        ourHQLoc = wallLocations.hq;
         //enemyHQLoc = wallLocations.hq;
     }
 }
