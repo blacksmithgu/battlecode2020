@@ -27,13 +27,15 @@ public class BitconnectTest {
         Mockito.when(rc.getBlock(anyInt())).thenReturn(new Transaction[0]);
         Mockito.when(rc.getTeamSoup()).thenReturn(Integer.MAX_VALUE);
         Bitconnect bitconnect = new Bitconnect(rc, 10, 10);
-        Bitconnect.HQSurroundings surroundings = new Bitconnect.HQSurroundings(new MapLocation(1,2), new MapLocation[0]);
+        MapLocation[] adj = new MapLocation[1];
+        adj[0] = new MapLocation(2,2);
+        Bitconnect.HQSurroundings surroundings = new Bitconnect.HQSurroundings(new MapLocation(1,2), adj);
         Bitconnect.Block block = bitconnect.sendLandscaperLocations(rc, surroundings);
-        int[] expectedBlock = {42,1,2,0,0,0,0};
+        int[] expectedBlock = {42,1,2,4,0,0,0};
         Bitconnect.Block expected = Bitconnect.Block.extractBlock(expectedBlock);
-        assertTrue(Arrays.equals(expected.content, block.content));
+        assertArrayEquals(expected.content, block.content);
         Bitconnect.HQSurroundings result = Bitconnect.HQSurroundings.fromMessage(block);
-        System.out.println(result);
         assertTrue(surroundings.equals(result));
+        assertEquals(1, surroundings.adjacentWallSpots.length);
     }
 }
