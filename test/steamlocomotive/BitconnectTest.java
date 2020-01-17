@@ -30,7 +30,8 @@ public class BitconnectTest {
         MapLocation[] adj = new MapLocation[1];
         adj[0] = new MapLocation(2,2);
         Bitconnect.HQSurroundings surroundings = new Bitconnect.HQSurroundings(new MapLocation(1,2), adj);
-        Bitconnect.Block block = bitconnect.sendLandscaperLocations(rc, surroundings);
+        bitconnect.sendLandscaperLocations(rc, surroundings);
+        Bitconnect.Block block = bitconnect.blocksToSend.pop();
         int[] expectedBlock = {42,1,2,4,0,0,0};
         Bitconnect.Block expected = Bitconnect.Block.extractBlock(expectedBlock);
         assertArrayEquals(expected.content, block.content);

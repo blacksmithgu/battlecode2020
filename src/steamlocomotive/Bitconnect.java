@@ -12,6 +12,8 @@ public class Bitconnect {
     // our HQ setup
     HQSurroundings ourHQSurroundings;
 
+    final CircularStack<Block> blocksToSend;
+
     public static class HQSurroundings {
         MapLocation hq;
         MapLocation[] adjacentWallSpots;
@@ -205,12 +207,23 @@ public class Bitconnect {
                 }
             }
         }
+
+        this.blocksToSend = new CircularStack<Block>(10);
     }
 
     public void updateForTurn(RobotController rc) throws GameActionException {
         if(rc.getRoundNum() == 1) {
             return;
         }
+
+        Block toSend = blocksToSend.pop();
+        if(toSend!=null) {
+            Block message = this.sendMessage(rc, toSend);
+            if(message == null) {
+                blocksToSend.push(message);
+            }
+        }
+
         Transaction[] transactions = rc.getBlock(rc.getRoundNum()-1);
         for(Transaction transaction: transactions) {
             Block block = Block.extractBlock(transaction.getMessage());
@@ -234,8 +247,8 @@ public class Bitconnect {
     /**
      * sends a map of the HQ and desired wall locations.
      */
-    public Block sendLandscaperLocations(RobotController rc, HQSurroundings surroundings) throws GameActionException {
-        return this.sendMessage(rc, surroundings.toMessage());
+    public void sendLandscaperLocations(RobotController rc, HQSurroundings surroundings) throws GameActionException {
+        this.blocksToSend.push(surroundings.toMessage());
     }
 
     /**
