@@ -251,7 +251,7 @@ public class Bitconnect {
      * returns true if the "wallClaimed" message has been sent in the last 50 turns
      */
     public boolean isWallDone(RobotController rc){
-
+        return false;
     }
 
     /**
