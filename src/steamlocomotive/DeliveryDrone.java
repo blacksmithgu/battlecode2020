@@ -73,36 +73,27 @@ public strictfp class DeliveryDrone extends Unit {
         Utils.traverseSensable(rc, loc -> {
             boolean isFlooding = rc.senseFlooding(loc);
 
-            //If a representative has become unflooded, get rid of it.
-            //Ignore other unflooded tiles.
+
             if (!isFlooding) {
+                //If a water representative has become unflooded, get rid of it.
                 for (int i = 0; i < waterReps.length; i++) {
                     if(waterReps[i] == loc) {
                         waterReps[i] = null;
                     }
                 }
+
+                //Update soup representatives
+                //Update cow representatives
+                //Update enemy representatives?
+                //Update friendly miner representatives
+                //Update friendly refinery locations
+
+                //Update friendly HQ location
+                //Update enemy HQ location
                 return;
             }
 
-            // Ignore water which is already close to a representative.
-            for (int i = 0; i < waterReps.length; i++) {
-                MapLocation rep = waterReps[i];
-                if (rep != null && loc.distanceSquaredTo(rep) <= Config.REPRESENTATIVE_THRESHOLD) {
-                    return;
-                }
-            }
-
-            // Try to designate as a representative. If there is a slot, fill it.
-            for (int i = 0; i < waterReps.length; i++) {
-                if(waterReps[i] == null) {
-                    waterReps[i] = loc;
-                    return;
-                }
-            }
-
-
-            // Otherwise replace randomly.
-            this.waterReps[this.rng.nextInt(Config.TRACKED_SOUP_COUNT)] = loc;
+           updateWaterReps(rc, loc);
         });
     }
 
@@ -258,5 +249,37 @@ public strictfp class DeliveryDrone extends Unit {
 
         // If we get to here, something is wrong. Go to roaming and hope things work out.
         return new Transition(DroneState.ROAMING,false);
+    }
+
+    public void updateWaterReps(RobotController rc, MapLocation loc) {
+        //Updates the waterReps list
+        //Assumes that the location loc it receives is flooded.
+        genericRepLocUpdate(rc, loc, waterReps);
+        return;
+    }
+
+    public void genericRepLocUpdate(RobotController rc, MapLocation loc, MapLocation[] reps) {
+        //Can be used to update any representative list
+        //Takes as input a location loc **WHICH THIS FUNCTION ASSUMES HAS THE APPROPRIATE THING IN IT**
+        //And the list of representatives reps to be updated
+        // Ignore location which is already close to a representative.
+        for (int i = 0; i < reps.length; i++) {
+            MapLocation rep = reps[i];
+            if (rep != null && loc.distanceSquaredTo(rep) <= Config.REPRESENTATIVE_THRESHOLD) {
+                return;
+            }
+        }
+
+        // Try to designate as a representative. If there is a slot, fill it.
+        for (int i = 0; i < reps.length; i++) {
+            if(reps[i] == null) {
+                reps[i] = loc;
+                return;
+            }
+        }
+
+        // Otherwise replace randomly.
+        reps[this.rng.nextInt(Config.TRACKED_SOUP_COUNT)] = loc;
+        return;
     }
 }
