@@ -6,8 +6,6 @@ import java.awt.*;
 
 public class Bitconnect {
 
-    final static int HQ_SETTUP_ID = 42;
-    final static int WALL_DONE = 76;
     // width of the map
     final int width;
     // height of the map
@@ -18,6 +16,21 @@ public class Bitconnect {
     boolean isWallDone = false;
 
     final CircularStack<Block> blocksToSend;
+
+    private enum MessageType {
+        HQ_SETTUP(42),
+        WALL_DONE(76);
+
+        int id;
+
+        private MessageType(int i) {
+            this.id = id;
+        }
+
+        public int getId() {
+            return this.id;
+        }
+    }
 
     public static class HQSurroundings {
         MapLocation hq;
@@ -42,7 +55,7 @@ public class Bitconnect {
 
         public Block toMessage() {
             int[] message = new int[6];
-            message[0] = HQ_SETTUP_ID;
+            message[0] = MessageType.HQ_SETTUP.getId();
             message[1] = hq.x;
             message[2] = hq.y;
             message[3] = 0;
@@ -67,7 +80,7 @@ public class Bitconnect {
 
         public static HQSurroundings fromMessage(Block block) {
             int[] message = block.getMessage();
-            if(message[0]!=HQ_SETTUP_ID) {
+            if(message[0]!=MessageType.HQ_SETTUP.getId()) {
                 return null;
             }
             MapLocation hq = new MapLocation(message[1], message[2]);
@@ -117,73 +130,6 @@ public class Bitconnect {
         }
     }
 
-    public static class Block {
-        int[] content;
-
-        /**
-         * Create a block from 6 ints
-         */
-        private Block(int[] content) {
-            this.content = content;
-        }
-
-        /**
-         * Create a block from a 7 int array or return null if the message is not ours
-         */
-        public static Block extractBlock(int[] block) {
-            if (block.length != 7) {
-                return null;
-            }
-
-            int checksum = getChecksum(block);
-            int[] content = getContent(block);
-
-            if (!correctChecksum(content, checksum)) {
-                return null;
-            }
-            return new Block(content);
-        }
-
-        private static int[] getContent(int[] block) {
-            int[] content = new int[6];
-
-            for (int index = 0; index < content.length; index++) {
-                content[index] = block[index];
-            }
-            return content;
-        }
-
-        private static int getChecksum(int[] content) {
-            return 0;
-        }
-
-        /**
-         * Verify that a checksum is valid for a message of 6 ints
-         */
-        private static boolean correctChecksum(int[] message, int checksum) {
-            return true;
-        }
-
-        /**
-         * Creates a block from a message of 6 ints or returns null if input is wrong size
-         */
-        public static Block createBlock(int[] message) {
-            if(message.length != 6) {
-                return null;
-            }
-
-            return new Block(message);
-        }
-
-        public int[] getMessage() {
-            int[] message = new int[7];
-            for (int index = 0; index < 6; index++) {
-                message[index] = content[index];
-            }
-            message[6] = getChecksum(content);
-            return message;
-        }
-    }
 
     private Block sendMessage(RobotController rc, Block block) throws GameActionException {
         if (rc.getTeamSoup() > Config.SOUP_FOR_COMS) {
@@ -199,6 +145,8 @@ public class Bitconnect {
     public Bitconnect(RobotController rc, int width, int height) throws GameActionException {
         this.width = width;
         this.height = height;
+        this.blocksToSend = new CircularStack<Block>(10);
+
         for(int turn = 1; turn < 20 && turn < rc.getRoundNum(); turn++) {
             Transaction[] transactions = rc.getBlock(turn);
             for(Transaction transaction: transactions) {
@@ -213,7 +161,18 @@ public class Bitconnect {
             }
         }
 
-        this.blocksToSend = new CircularStack<Block>(10);
+        for(int turn = 1; turn < 50 && turn < rc.getRoundNum(); turn++) {
+            Transaction[] transactions = rc.getBlock(rc.getRoundNum() - turn);
+            for(Transaction transaction: transactions) {
+                Block block = Block.extractBlock(transaction.getMessage());
+                if(block != null) {
+                    if(block.getMessage()[0]==MessageType.WALL_DONE.getId()) {
+                        this.isWallDone = true;
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     public void updateForTurn(RobotController rc) throws GameActionException {
@@ -238,7 +197,7 @@ public class Bitconnect {
                     System.out.println("Our HQ is at: " + surroundings.hq);
                     this.ourHQSurroundings = surroundings;
                 }
-                if(block.getMessage()[0] == WALL_DONE) {
+                if(block.getMessage()[0] == MessageType.WALL_DONE.getId()) {
                     isWallDone = true;
                 }
             }
@@ -264,7 +223,7 @@ public class Bitconnect {
      */
     public void wallClaimed(RobotController rc){
         int[] message = new int[6];
-        message[0] = WALL_DONE;
+        message[0] = MessageType.WALL_DONE.getId();
         Block block = Block.createBlock(message);
         this.blocksToSend.push(block);
     }
