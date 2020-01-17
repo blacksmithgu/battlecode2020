@@ -14,18 +14,20 @@ public class FulfillmentCenter extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
+        //The center scans nearby robots at the start of each turn, then passes the result into many of its checks
         RobotInfo[] nearbyRobots = rc.senseNearbyRobots();
 
-        //If fulfillment center is in range of enemy netgun or HQ, it doesn't build drone.
+        //If fulfillment center is in range of enemy netgun or HQ, it doesn't build a drone.
         if (checkForNets(rc, nearbyRobots, centerTeam)) {
             return;
         }
 
-        //TODO: When helping HQ, build drone as close to enemy landscaper as possible.
         //The fulfillment center checks if HQ needs help. If so, makes a drone.
-        if (isOutnumbered(rc, nearbyRobots, centerTeam) && isNearHQ) {
-            buildDroneBasic(rc);
-            return;
+        if(isNearHQ) {
+            if (isOutnumbered(rc, nearbyRobots, centerTeam)) {
+                buildTowardsEnemy(rc, nearbyRobots);
+                return;
+            }
         }
 
         //Fulfillment center builds drones early, but not a lot
@@ -46,9 +48,8 @@ public class FulfillmentCenter extends Unit {
         Takes as input the RobotConteroller, an array of nearby robot info (i.e. from rc.senseNearbyRobots())...
          and the team of the robot using the function */
         for (RobotInfo info : nearby) {
-            if (info.getTeam() != myTeam) {
-                RobotType enemyRobotType = info.getType();
-                if (enemyRobotType == RobotType.HQ || enemyRobotType == RobotType.NET_GUN) {
+            if (info.team != myTeam) {
+                if (info.type == RobotType.HQ || info.type == RobotType.NET_GUN) {
                     return true;
                 }
             }
@@ -56,24 +57,39 @@ public class FulfillmentCenter extends Unit {
         return false;
     }
 
-    public boolean isOutnumbered(RobotController rc, RobotInfo[] nearby, Team myTeam) throws GameActionException {
-        /*
-         Returns true iff (#nearby enemy landscapers >= #nearby friendly drones that aren't carrying things)
-         */
+
+    public int[] headcount(RobotController rc, RobotInfo[] nearby, Team myTeam) throws GameActionException {
+        //Counts enemy landscapers, enemy miners, and friendly not-carrying-something drones
+        //Outputs integers counting them in that order
+
+        int numLandscapers = 0;
+        int numMiners = 0;
         int numFriendlyDrones = 0;
-        int numEnemyLandscapers = 0;
         for (RobotInfo info : nearby) {
-            if (info.getTeam() != myTeam && info.getType() == RobotType.LANDSCAPER) {
-                numEnemyLandscapers++;
+            if (info.team != myTeam) {
+                if (info.type == RobotType.LANDSCAPER) {
+                    numLandscapers++;
+                }
+                else if (info.type == RobotType.MINER) {
+                    numMiners++;
+                }
             }
-            else if (info.getTeam() == myTeam) {
-                //TODO: Add check that friendly drone ISN'T already carrying something
-                if (info.getType() == RobotType.DELIVERY_DRONE) {
+            else if (info.team == myTeam) {
+                if (info.type == RobotType.DELIVERY_DRONE && !info.currentlyHoldingUnit) {
                     numFriendlyDrones++;
                 }
             }
         }
-        if (numEnemyLandscapers >= numFriendlyDrones) {
+        int output[] = {numLandscapers, numMiners, numFriendlyDrones};
+        return output;
+    }
+
+    public boolean isOutnumbered(RobotController rc, RobotInfo[] nearby, Team myTeam) throws GameActionException {
+        /*
+         Returns true iff (#nearby enemy landscapers&miners >= #nearby friendly drones that aren't carrying things + 2)
+         */
+        int[] robotCounts = headcount(rc, nearby, myTeam);
+        if (robotCounts[0] + robotCounts[1] >= robotCounts[2] + 2) {
             return true;
         }
         else {
@@ -95,16 +111,56 @@ public class FulfillmentCenter extends Unit {
         return;
     }
 
+    public void buildTowardsEnemy(RobotController rc, RobotInfo[] nearby) throws GameActionException {
+        //Builds a drone in the direction of the closest enemy
+        //First, identifies the closest enemy landscaper or miner and the direction towards is
+        RobotInfo best = null;
+        int bestDistance = Integer.MAX_VALUE;
+
+        MapLocation us = rc.getLocation();
+        for (RobotInfo robot : nearby) {
+            if (robot.team == centerTeam) continue;
+
+            if (robot.type == RobotType.LANDSCAPER || robot.type == RobotType.MINER) {
+                int dist = us.distanceSquaredTo(robot.getLocation());
+                if (dist < bestDistance) {
+                    bestDistance = dist;
+                    best = robot;
+                }
+            }
+        }
+        if (best == null) {
+            return;
+        }
+        Direction bestDirection = us.directionTo(best.location);
+
+        //Second, build drone directly towards that enemy or one angle off
+        if (rc.canBuildRobot(RobotType.DELIVERY_DRONE, bestDirection)) {
+            rc.move(bestDirection);
+            return;
+        } else if (rc.canBuildRobot(RobotType.DELIVERY_DRONE, bestDirection.rotateLeft())) {
+            rc.move(bestDirection.rotateLeft());
+            return;
+        } else if (rc.canBuildRobot(RobotType.DELIVERY_DRONE, bestDirection.rotateRight())) {
+            rc.move(bestDirection.rotateRight());
+            return;
+        } else {
+            //If those directions don't work, build drone wherever possible
+            buildDroneBasic(rc);
+            return;
+        }
+    }
+
+
     public void onCreation(RobotController rc) throws GameActionException {
         /*
         Notes its own team. Notes whether it's near our HQ.
          */
         centerTeam = rc.getTeam();
         for (RobotInfo info : rc.senseNearbyRobots()) {
-            if (info.getTeam() == centerTeam && info.getType()==RobotType.HQ) {
+            if (info.team == centerTeam && info.type ==RobotType.HQ) {
                 isNearHQ = true;
             }
         }
     }
-
 }
