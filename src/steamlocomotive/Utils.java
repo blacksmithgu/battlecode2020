@@ -143,7 +143,10 @@ public class Utils {
             }
 
             // Not part of any cluster, swap out at random.
-            if (closest == -1) clusters[rng.nextInt(clusters.length)] = loc;
+            if (closest == -1) {
+                int index = rng.nextInt(clusters.length);
+                clusters[index] = loc;
+            }
         }
 
         /** Return true if this clusterer is tracking any clusters. */
