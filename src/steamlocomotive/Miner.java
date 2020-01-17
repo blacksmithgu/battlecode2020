@@ -247,10 +247,17 @@ public class Miner extends Unit {
         }
 
         // Builds a fulfillment center in a direction that it can. If can't, then transitions to roaming.
+//        for (Direction adj : Direction.allDirections()) {
+//            if (adj == Direction.CENTER) continue;
+//            if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, adj)) {
+//                rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
+//                return new Transition(MinerState.TRAVEL, true);
+//            }
+//        }
         for (Direction adj : Direction.allDirections()) {
             if (adj == Direction.CENTER) continue;
-            if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, adj)) {
-                rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
+            if (rc.canBuildRobot(RobotType.DESIGN_SCHOOL, adj)) {
+                rc.buildRobot(RobotType.DESIGN_SCHOOL, adj);
                 return new Transition(MinerState.TRAVEL, true);
             }
         }
