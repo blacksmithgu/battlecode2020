@@ -16,12 +16,16 @@ public class HQ extends Unit {
     // Spots for the wall
     private List<MapLocation> wallSpots = new ArrayList<>();
 
+    // comms
+    private Bitconnect comms;
+
     public HQ(int id) {
         super(id);
     }
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
+        comms.updateForTurn(rc);
         // Aggressively shoot down enemy drones if they roam too closely.
         NetGun.findAndShoot(rc);
 
@@ -39,7 +43,7 @@ public class HQ extends Unit {
         MapLocation[] soupLocations = rc.senseNearbySoup();
 
         if (soupLocations.length == 0) {
-            soupLocations = new MapLocation[] { new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight())) };
+            soupLocations = new MapLocation[]{new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()))};
         }
 
         // Randomly choose a location to send a miner off too to die.
@@ -55,13 +59,13 @@ public class HQ extends Unit {
             this.numMiners += 1;
         }
         //plan out where the wall should go
-        if (rc.getRoundNum() == Config.PLAN_WALL){
-            for (int xOffset = -1; xOffset <=1; xOffset++){
-                for (int yOffset = -1; yOffset <=1; yOffset++){
-                    if (xOffset!=0 || yOffset!=0){
+        if (rc.getRoundNum() == Config.PLAN_WALL) {
+            for (int xOffset = -1; xOffset <= 1; xOffset++) {
+                for (int yOffset = -1; yOffset <= 1; yOffset++) {
+                    if (xOffset != 0 || yOffset != 0) {
                         MapLocation loc = rc.getLocation();
-                        loc = new MapLocation(loc.x+xOffset,loc.y+yOffset);
-                        if (rc.onTheMap(loc)){
+                        loc = new MapLocation(loc.x + xOffset, loc.y + yOffset);
+                        if (rc.onTheMap(loc)) {
                             wallSpots.add(loc);
                         }
                     }
@@ -69,7 +73,25 @@ public class HQ extends Unit {
             }
 
             //send out communication message with the locations for the walls of the base
-        }
 
+            MapLocation[] adj_spots = new MapLocation[wallSpots.size()];
+            int idx = 0;
+            for (MapLocation loc : wallSpots) {
+                adj_spots[idx] = loc;
+                idx += 1;
+            }
+            Bitconnect.HQSurroundings data = new Bitconnect.HQSurroundings(rc.getLocation(), adj_spots);
+            if (comms==null){
+                System.out.println("null communications ************");
+            }
+            comms.sendLandscaperLocations(rc, data);
+            System.out.println("HQ sent message");
+        }
+    }
+
+    public void onCreation(RobotController rc) throws GameActionException {
+        System.out.println("setting up coms");
+        comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
+        System.out.println("done setting up coms");
     }
 }

@@ -1,12 +1,15 @@
 package steamlocomotive;
 
+import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 
 public class Landscaper extends Unit {
 
-    /** Possible states the landscaper can be in. */
+    /**
+     * Possible states the landscaper can be in.
+     */
     public enum LandscaperState {
         // WE WILL BUILD A WALL AND MAKE THE BLUE TEAM PAY FOR IT.
         BUILD_WALL,
@@ -22,7 +25,9 @@ public class Landscaper extends Unit {
         ROAMING
     }
 
-    /** A transition from one state to another. Marks the target and whether an action has been taken. */
+    /**
+     * A transition from one state to another. Marks the target and whether an action has been taken.
+     */
     private static class Transition {
         public LandscaperState target;
         public boolean madeAction;
@@ -50,7 +55,7 @@ public class Landscaper extends Unit {
 
     public Landscaper(int id) {
         super(id);
-        this.state = LandscaperState.ROAMING;
+        this.state = LandscaperState.MOVE_TO_WALL;
         this.pathfinder = null;
         this.pathfindSteps = 0;
     }
@@ -65,13 +70,25 @@ public class Landscaper extends Unit {
         do {
             Transition trans;
             switch (this.state) {
-                case BUILD_WALL: trans = this.buildWall(rc); break;
-                case MOVE_TO_WALL: trans = this.moveToWall(rc); break;
-                case BURY_ENEMY: trans = this.buryEnemy(rc); break;
-                case UNBURY_ALLY: trans = this.unburyAlly(rc); break;
-                case TERRAFORM: trans = this.terraform(rc); break;
+                case BUILD_WALL:
+                    trans = this.buildWall(rc);
+                    break;
+                case MOVE_TO_WALL:
+                    trans = this.moveToWall(rc);
+                    break;
+                case BURY_ENEMY:
+                    trans = this.buryEnemy(rc);
+                    break;
+                case UNBURY_ALLY:
+                    trans = this.unburyAlly(rc);
+                    break;
+                case TERRAFORM:
+                    trans = this.terraform(rc);
+                    break;
                 default:
-                case ROAMING: trans = this.roaming(rc); break;
+                case ROAMING:
+                    trans = this.roaming(rc);
+                    break;
             }
 
             // Reset transient miner state.
@@ -94,48 +111,22 @@ public class Landscaper extends Unit {
     }
 
     public Transition buildWall(RobotController rc) throws GameActionException {
-        //if wall builder, move towards one of the desired locations
         /*
-        if (inPosition == false && wallLocations != null) {
-            //check if in position
-            MapLocation pos = rc.getLocation();
-            for (int i = 1; i < wallLocations.adjacentWallSpots.length; i++) {
-                if (pos.equals(wallLocations.adjacentWallSpots[i])) {
-                    inPosition = true;
+        System.out.println("building a wall ************");
+        Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
+        if (!rc.canDigDirt(digFrom)) {
+            for (Direction direction : Direction.allDirections()) {
+                if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction)) {
+                    digFrom = direction;
+                    break;
                 }
             }
-
-            MapLocation temp = wallLocations.adjacentWallSpots[wallIdxTarget];
-            if (rc.canSenseLocation(temp) && rc.isLocationOccupied(temp)) {
-                wallIdxTarget += 1;
-                if (wallIdxTarget >= wallLocations.adjacentWallSpots.length) {
-                    wallIdxTarget -= 1;
-                }
-            }
-
-            //move to position
-            pathfinder = this.newPathfinder(wallLocations.adjacentWallSpots[wallIdxTarget], false);
-            Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
-            if (move != null && move != Direction.CENTER) rc.move(move);
         }
-
-        if (inPosition == true) {
-            System.out.println("reaching this method ************");
-            Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
-            if (!rc.canDigDirt(digFrom)) {
-                for (Direction direction : Direction.allDirections()) {
-                    if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction)) {
-                        digFrom = direction;
-                        break;
-                    }
-                }
-            }
-            if (rc.getDirtCarrying() == 0)  {
-                rc.digDirt(digFrom);
-            } else {
-                if (rc.canDepositDirt(Direction.CENTER)) {
-                    rc.depositDirt(Direction.CENTER);
-                }
+        if (rc.getRoundNum() % 2 == 0) {
+            rc.digDirt(digFrom);
+        } else {
+            if (rc.canDepositDirt(Direction.CENTER)) {
+                rc.depositDirt(Direction.CENTER);
             }
         }
         */
@@ -143,7 +134,31 @@ public class Landscaper extends Unit {
     }
 
     public Transition moveToWall(RobotController rc) throws GameActionException {
-        return new Transition(LandscaperState.BUILD_WALL, true);
+        /*
+        System.out.println("wall location size " + wallLocations.adjacentWallSpots.length);
+
+        //check if in position
+        MapLocation pos = rc.getLocation();
+        for (int i = 1; i < wallLocations.adjacentWallSpots.length; i++) {
+            if (pos.equals(wallLocations.adjacentWallSpots[i])) {
+                return new Transition(LandscaperState.BUILD_WALL, false);
+            }
+        }
+
+        MapLocation temp = wallLocations.adjacentWallSpots[wallIdxTarget];
+        if (rc.canSenseLocation(temp) && rc.isLocationOccupied(temp)) {
+            wallIdxTarget += 1;
+            if (wallIdxTarget >= wallLocations.adjacentWallSpots.length) {
+                wallIdxTarget -= 1;
+            }
+        }
+
+        //move to position
+        pathfinder = this.newPathfinder(wallLocations.adjacentWallSpots[wallIdxTarget], false);
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+        if (move != null && move != Direction.CENTER) rc.move(move);
+        */
+        return new Transition(LandscaperState.MOVE_TO_WALL, true);
     }
 
     public Transition buryEnemy(RobotController rc) throws GameActionException {
@@ -180,9 +195,9 @@ public class Landscaper extends Unit {
         int x2 = enemyHQLoc.x;
         int y1 = ourHQLoc.y;
         int y2 = enemyHQLoc.y;
-        double top = Math.abs((y2-y1)*x0-(x2-x1)*y0+x2*y1-y2*x1);
-        double bottom = Math.sqrt(Math.pow(y2-y1,2)+Math.pow(x2-x1,2));
-        if (top/bottom<dist){
+        double top = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
+        double bottom = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
+        if (top / bottom < dist) {
             return true;
         }
         return false;
@@ -192,6 +207,9 @@ public class Landscaper extends Unit {
     public void onCreation(RobotController rc) throws GameActionException {
         comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
         wallLocations = comms.getWallLocations(rc);
-        enemyHQLoc = wallLocations.hq;
+        if (wallLocations == null) {
+            System.out.println("Niels my landscapers aren't getting comms");
+        }
+        //enemyHQLoc = wallLocations.hq;
     }
 }
