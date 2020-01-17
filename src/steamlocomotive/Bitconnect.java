@@ -26,7 +26,7 @@ public class Bitconnect {
 
         private boolean listContainsLocation(MapLocation[] locs, MapLocation location) {
             for(MapLocation test: locs) {
-                if(locs.equals(location)) {
+                if(test.x == location.x && test.y == location.y) {
                     return true;
                 }
             }
