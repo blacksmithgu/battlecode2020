@@ -1,57 +1,101 @@
 package steamlocomotive;
 
-import battlecode.common.*;
-
-import java.awt.*;
-import java.util.Map;
+import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
 
 public class Landscaper extends Unit {
 
-    //communication object
+    /** Possible states the landscaper can be in. */
+    public enum LandscaperState {
+        // WE WILL BUILD A WALL AND MAKE THE BLUE TEAM PAY FOR IT.
+        BUILD_WALL,
+        // Move towards building the wall. Elect Donald Trump today.
+        MOVE_TO_WALL,
+        // Bury a detected enemy building.
+        BURY_ENEMY,
+        // Unbury an ally building (specifically the HQ).
+        UNBURY_ALLY,
+        // Terraform towards the enemy base.
+        TERRAFORM,
+        // Lost and without a purpose...
+        ROAMING
+    }
+
+    /** A transition from one state to another. Marks the target and whether an action has been taken. */
+    private static class Transition {
+        public LandscaperState target;
+        public boolean madeAction;
+
+        public Transition(LandscaperState target, boolean madeAction) {
+            this.target = target;
+            this.madeAction = madeAction;
+        }
+    }
+
+    // Current landscaper state.
+    private LandscaperState state;
+    // Communication object.
     private Bitconnect comms;
-
-    //in position to build wall
-    private boolean inPosition = false;
-
-    //our HQ location
-    private MapLocation ourHQLoc;
-
-    //enemy HQ location
-    private MapLocation enemyHQLoc;
-
+    // Our and enemy HQ locations.
+    private MapLocation ourHQLoc, enemyHQLoc;
     //wall locations
     private Bitconnect.HQSurroundings wallLocations;
-
+    // Pathfinder object for stateful pathfinding.
+    private BugPathfinder pathfinder;
+    // The number of steps taken with the current pathfinder.
+    private int pathfindSteps;
     //wall location index target
     private int wallIdxTarget = 0;
 
-    //bug pathfinder
-    private BugPathfinder pathfinder;
-
-    private boolean isWallBuilder = false;
-
-    private boolean needsNewLocation = true;
-
-
-
-
     public Landscaper(int id) {
         super(id);
+        this.state = LandscaperState.ROAMING;
+        this.pathfinder = null;
+        this.pathfindSteps = 0;
     }
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
-        if (isWallBuilder) {
-            buildWall(rc, turn);
-        } else {
-            terraform(rc, turn);
-        }
+        // Update soup knowledge by scanning surroundings.
+        this.scanSurroundings(rc);
 
+        // Swap on current state.
+        boolean madeAction;
+        do {
+            Transition trans;
+            switch (this.state) {
+                case BUILD_WALL: trans = this.buildWall(rc); break;
+                case MOVE_TO_WALL: trans = this.moveToWall(rc); break;
+                case BURY_ENEMY: trans = this.buryEnemy(rc); break;
+                case UNBURY_ALLY: trans = this.unburyAlly(rc); break;
+                case TERRAFORM: trans = this.terraform(rc); break;
+                default:
+                case ROAMING: trans = this.roaming(rc); break;
+            }
 
+            // Reset transient miner state.
+            if (this.state != trans.target) {
+                this.pathfinder = null;
+                this.pathfindSteps = 0;
+            }
+
+            this.state = trans.target;
+            madeAction = trans.madeAction;
+        } while (!madeAction);
+
+        //if wall builder, move towards one of the desired locations
+        // Useful for debugging.
+        if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 0, 0, 255);
     }
 
-    public void buildWall(RobotController rc, int turn) throws GameActionException {
+    public void scanSurroundings(RobotController rc) throws GameActionException {
+        // TODO: Do something?
+    }
+
+    public Transition buildWall(RobotController rc) throws GameActionException {
         //if wall builder, move towards one of the desired locations
+        /*
         if (inPosition == false && wallLocations != null) {
             //check if in position
             MapLocation pos = rc.getLocation();
@@ -75,7 +119,6 @@ public class Landscaper extends Unit {
             if (move != null && move != Direction.CENTER) rc.move(move);
         }
 
-
         if (inPosition == true) {
             System.out.println("reaching this method ************");
             Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
@@ -87,7 +130,7 @@ public class Landscaper extends Unit {
                     }
                 }
             }
-            if (turn % 2 == 0) {
+            if (rc.getDirtCarrying() == 0)  {
                 rc.digDirt(digFrom);
             } else {
                 if (rc.canDepositDirt(Direction.CENTER)) {
@@ -95,9 +138,30 @@ public class Landscaper extends Unit {
                 }
             }
         }
+        */
+        return new Transition(LandscaperState.BUILD_WALL, true);
     }
 
-    public void terraform(RobotController rc, int turn) throws GameActionException {
+    public Transition moveToWall(RobotController rc) throws GameActionException {
+        return new Transition(LandscaperState.BUILD_WALL, true);
+    }
+
+    public Transition buryEnemy(RobotController rc) throws GameActionException {
+        return new Transition(LandscaperState.BUILD_WALL, true);
+    }
+
+    public Transition unburyAlly(RobotController rc) throws GameActionException {
+        return new Transition(LandscaperState.BUILD_WALL, true);
+    }
+
+    public Transition terraform(RobotController rc) throws GameActionException {
+        return new Transition(LandscaperState.BUILD_WALL, true);
+    }
+
+    public Transition roaming(RobotController rc) throws GameActionException {
+        return new Transition(LandscaperState.TERRAFORM, true);
+
+        /*
         if (needsNewLocation){
             MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
 
@@ -106,29 +170,8 @@ public class Landscaper extends Unit {
 
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
         if (move != null && move != Direction.CENTER) rc.move(move);
+        */
     }
-
-//    public Miner.Transition roaming(RobotController rc) throws GameActionException {
-//        // TODO: Roaming targets may be unreachable, so choose a new target after X steps.
-//
-//        // If there is nonzero soup we are aware of, transition to traveling to it.
-//        if (soups.hasCluster()) return new Miner.Transition(Miner.MinerState.TRAVEL, false);
-//
-//        // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
-//        if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
-//            // TODO: More intelligent target selection. We choose randomly for now.
-//            MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
-//
-//            this.pathfinder = this.newPathfinder(target, true);
-//        }
-//
-//        // Obtain a movement from the pathfinder and follow it.
-//        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
-//        if (move != null && move != Direction.CENTER) rc.move(move);
-//        this.pathfindSteps++;
-//
-//        return new Miner.Transition(Miner.MinerState.ROAMING, true);
-//    }
 
     public boolean isImportantTile(RobotController rc, MapLocation loc, int dist) throws GameActionException {
         int x0 = loc.x;
@@ -145,6 +188,7 @@ public class Landscaper extends Unit {
         return false;
     }
 
+    @Override
     public void onCreation(RobotController rc) throws GameActionException {
         comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
         wallLocations = comms.getWallLocations(rc);
