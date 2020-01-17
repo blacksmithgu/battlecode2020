@@ -28,7 +28,7 @@ public class Landscaper extends Unit {
     //bug pathfinder
     private BugPathfinder pathfinder;
 
-    private boolean isWallBuilder = false;
+    private boolean isWallBuilder = true;
 
     private boolean needsNewLocation = true;
 
@@ -41,6 +41,7 @@ public class Landscaper extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
+        comms.updateForTurn(rc);
         if (isWallBuilder) {
             buildWall(rc, turn);
         } else {
@@ -51,8 +52,12 @@ public class Landscaper extends Unit {
     }
 
     public void buildWall(RobotController rc, int turn) throws GameActionException {
+
         //if wall builder, move towards one of the desired locations
         if (inPosition == false && wallLocations != null) {
+
+            System.out.println("wall location size " + wallLocations.adjacentWallSpots.length);
+            /*
             //check if in position
             MapLocation pos = rc.getLocation();
             for (int i = 1; i < wallLocations.adjacentWallSpots.length; i++) {
@@ -73,9 +78,10 @@ public class Landscaper extends Unit {
             pathfinder = this.newPathfinder(wallLocations.adjacentWallSpots[wallIdxTarget], false);
             Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
             if (move != null && move != Direction.CENTER) rc.move(move);
+            */
         }
 
-
+        /*
         if (inPosition == true) {
             System.out.println("reaching this method ************");
             Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
@@ -95,6 +101,8 @@ public class Landscaper extends Unit {
                 }
             }
         }
+        */
+
     }
 
     public void terraform(RobotController rc, int turn) throws GameActionException {
@@ -145,9 +153,12 @@ public class Landscaper extends Unit {
         return false;
     }
 
-    public void onCreation(RobotController rc) {
-        comms = new Bitconnect(rc.getMapWidth(), rc.getMapHeight());
+    public void onCreation(RobotController rc) throws GameActionException{
+        comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
         wallLocations = comms.getWallLocations(rc);
-        enemyHQLoc = wallLocations.hq;
+        if (wallLocations==null){
+            System.out.println("Niels my landscapers aren't getting comms");
+        }
+        //enemyHQLoc = wallLocations.hq;
     }
 }

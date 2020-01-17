@@ -172,7 +172,7 @@ public class Bitconnect {
     public Bitconnect(RobotController rc, int width, int height) throws GameActionException {
         this.width = width;
         this.height = height;
-        for(int turn = 0; turn < 20; turn++) {
+        for(int turn = 1; turn < 20 && turn < rc.getRoundNum(); turn++) {
             Transaction[] transactions = rc.getBlock(turn);
             for(Transaction transaction: transactions) {
                 Block block = Block.extractBlock(transaction.getMessage());
@@ -187,6 +187,9 @@ public class Bitconnect {
     }
 
     public void updateForTurn(RobotController rc) throws GameActionException {
+        if(rc.getRoundNum() == 1) {
+            return;
+        }
         Transaction[] transactions = rc.getBlock(rc.getRoundNum()-1);
         for(Transaction transaction: transactions) {
             Block block = Block.extractBlock(transaction.getMessage());
