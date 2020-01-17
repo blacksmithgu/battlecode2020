@@ -81,7 +81,7 @@ public class Miner extends Unit {
         } while (!madeAction);
 
         // Useful for debugging.
-        if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 0, 255, 0);
+        if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 255, 0, 0);
     }
 
     /** Update soup cluster and dropoff state. */
@@ -116,6 +116,7 @@ public class Miner extends Unit {
             MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
 
             this.pathfinder = this.newPathfinder(target, true);
+            this.pathfindSteps = 0;
         }
 
         // Obtain a movement from the pathfinder and follow it.
@@ -247,10 +248,17 @@ public class Miner extends Unit {
         }
 
         // Builds a fulfillment center in a direction that it can. If can't, then transitions to roaming.
+//        for (Direction adj : Direction.allDirections()) {
+//            if (adj == Direction.CENTER) continue;
+//            if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, adj)) {
+//                rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
+//                return new Transition(MinerState.TRAVEL, true);
+//            }
+//        }
         for (Direction adj : Direction.allDirections()) {
             if (adj == Direction.CENTER) continue;
-            if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, adj)) {
-                rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
+            if (rc.canBuildRobot(RobotType.DESIGN_SCHOOL, adj)) {
+                rc.buildRobot(RobotType.DESIGN_SCHOOL, adj);
                 return new Transition(MinerState.TRAVEL, true);
             }
         }
