@@ -61,6 +61,7 @@ public class Landscaper extends Unit {
     public void run(RobotController rc, int turn) throws GameActionException {
         // Update soup knowledge by scanning surroundings.
         this.scanSurroundings(rc);
+        comms.updateForTurn(rc);
 
         // Swap on current state.
         boolean madeAction;
@@ -109,7 +110,7 @@ public class Landscaper extends Unit {
 
     public Transition buildWall(RobotController rc) throws GameActionException {
 
-        System.out.println("building a wall ************");
+        //System.out.println("building a wall ************");
         Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
         if (!rc.canDigDirt(digFrom)) {
             for (Direction direction : Direction.allDirections()) {
@@ -132,7 +133,7 @@ public class Landscaper extends Unit {
 
     public Transition moveToWall(RobotController rc) throws GameActionException {
 
-        System.out.println("wall location size " + wallLocations.adjacentWallSpots.length);
+        //System.out.println("wall location size " + wallLocations.adjacentWallSpots.length);
 
         //check if in position
         MapLocation pos = rc.getLocation();
@@ -147,6 +148,7 @@ public class Landscaper extends Unit {
             wallIdxTarget += 1;
             if (wallIdxTarget >= wallLocations.adjacentWallSpots.length) {
                 wallIdxTarget -= 1;
+                return new Transition(LandscaperState.ROAMING, false);
             }
         }
 
@@ -198,7 +200,7 @@ public class Landscaper extends Unit {
     }
 
     public Transition roaming(RobotController rc) throws GameActionException {
-        /*
+
         // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
             // TODO: More intelligent target selection. We choose randomly for now.
@@ -212,8 +214,8 @@ public class Landscaper extends Unit {
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
         if (move != null && move != Direction.CENTER) rc.move(move);
         this.pathfindSteps++;
-        */
-        return new Transition(LandscaperState.TERRAFORM, true);
+
+        return new Transition(LandscaperState.ROAMING, true);
     }
 
     public boolean isImportantTile(RobotController rc, MapLocation loc, int dist) throws GameActionException {
@@ -239,6 +241,10 @@ public class Landscaper extends Unit {
             System.out.println("Niels my landscapers aren't getting comms");
         }
         ourHQLoc = wallLocations.hq;
+        if (comms.isWallDone(rc)){
+            System.out.println("WALL IS DONE");
+            state = LandscaperState.ROAMING;
+        }
         //enemyHQLoc = wallLocations.hq;
     }
 }
