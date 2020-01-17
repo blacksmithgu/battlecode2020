@@ -7,12 +7,15 @@ import java.awt.*;
 public class Bitconnect {
 
     final static int HQ_SETTUP_ID = 42;
+    final static int WALL_DONE = 76;
     // width of the map
     final int width;
     // height of the map
     final int height;
     // our HQ setup
     HQSurroundings ourHQSurroundings;
+    // is our wall done
+    boolean isWallDone = false;
 
     final CircularStack<Block> blocksToSend;
 
@@ -235,6 +238,9 @@ public class Bitconnect {
                     System.out.println("Our HQ is at: " + surroundings.hq);
                     this.ourHQSurroundings = surroundings;
                 }
+                if(block.getMessage()[0] == WALL_DONE) {
+                    isWallDone = true;
+                }
             }
         }
     }
@@ -257,14 +263,17 @@ public class Bitconnect {
      *  Says all the wall spots have been claimed by landscapers
      */
     public void wallClaimed(RobotController rc){
-
+        int[] message = new int[6];
+        message[0] = WALL_DONE;
+        Block block = Block.createBlock(message);
+        this.blocksToSend.push(block);
     }
 
     /**
      * returns true if the "wallClaimed" message has been sent in the last 50 turns
      */
     public boolean isWallDone(RobotController rc){
-        return false;
+        return isWallDone;
     }
 
     /**
