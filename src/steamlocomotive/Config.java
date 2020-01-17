@@ -41,7 +41,7 @@ public class Config {
     /**
      * The round the HQ decides how to build the wall around itself
      */
-    public static int PLAN_WALL = 10;
+    public static int PLAN_WALL = 2;
 
     /**
      * The maximum distance a unit will roam before picking a new roam target.
