@@ -73,7 +73,7 @@ public class HQ extends Unit {
             }
 
             //send out communication message with the locations for the walls of the base
-
+            System.out.println(wallSpots.toString() + " " + wallSpots.size());
             MapLocation[] adj_spots = new MapLocation[wallSpots.size()];
             int idx = 0;
             for (MapLocation loc : wallSpots) {

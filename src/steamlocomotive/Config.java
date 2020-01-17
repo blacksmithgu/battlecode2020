@@ -43,6 +43,7 @@ public class Config {
      */
     public static int PLAN_WALL = 1;
 
+
     /**
      * The maximum distance a unit will roam before picking a new roam target.
      */

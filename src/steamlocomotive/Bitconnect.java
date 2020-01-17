@@ -2,6 +2,8 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
+import java.awt.*;
+
 public class Bitconnect {
 
     final static int HQ_SETTUP_ID = 42;
@@ -249,6 +251,20 @@ public class Bitconnect {
      */
     public void sendLandscaperLocations(RobotController rc, HQSurroundings surroundings) throws GameActionException {
         this.blocksToSend.push(surroundings.toMessage());
+    }
+
+    /**
+     *  Says all the wall spots have been claimed by landscapers
+     */
+    public void wallClaimed(RobotController rc){
+
+    }
+
+    /**
+     * returns true if the "wallClaimed" message has been sent in the last 50 turns
+     */
+    public boolean isWallDone(RobotController rc){
+        return false;
     }
 
     /**
