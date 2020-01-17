@@ -30,13 +30,13 @@ public strictfp class DeliveryDrone extends Unit {
     private DeliveryDrone.DroneState state;
     // Pathfinder for going to a location;
     private BugPathfinder pathfinder;
-    // Contains up to TRACKED_WATER_COUNT valid water representatives we can visit.
-    private MapLocation[] waterReps;
+    // The closest water we've seen for dunking.
+    private MapLocation closestWater;
 
     public DeliveryDrone(int id) {
         super(id);
         this.pathfinder = null;
-        this.waterReps = new MapLocation[Config.TRACKED_SOUP_COUNT];
+        this.closestWater = null;
         this.state = DroneState.ROAMING;
     }
 
@@ -69,59 +69,39 @@ public strictfp class DeliveryDrone extends Unit {
     }
 
     public void scanSurroundings(RobotController rc) throws GameActionException {
-        // Water memory; track recently seen water.
+        // Reset closest water if it's... unflooded.
+        if (closestWater != null && rc.canSenseLocation(closestWater) && !rc.senseFlooding(closestWater)) {
+            closestWater = null;
+        }
+
+        // If you're wondering why the wierd array gimmick, it's so we can use this
+        // inside the lambda. Unfortunate, yes.
+        // TODO: Optimize this away by inlining traverse sensable.
+        int[] waterDistance = new int[] { this.closestWater == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestWater) };
+
+        // Scan the sensable area for water for some dunking/fun in the sun action.
         Utils.traverseSensable(rc, loc -> {
-            boolean isFlooding = rc.senseFlooding(loc);
-
-            //If a representative has become unflooded, get rid of it.
-            //Ignore other unflooded tiles.
-            if (!isFlooding) {
-                for (int i = 0; i < waterReps.length; i++) {
-                    if(waterReps[i] == loc) {
-                        waterReps[i] = null;
-                    }
-                }
-                return;
-            }
-
-            // Ignore water which is already close to a representative.
-            for (int i = 0; i < waterReps.length; i++) {
-                MapLocation rep = waterReps[i];
-                if (rep != null && loc.distanceSquaredTo(rep) <= Config.REPRESENTATIVE_THRESHOLD) {
-                    return;
+            // Update the closest water tile.
+            if (rc.senseFlooding(loc)) {
+                int dist = loc.distanceSquaredTo(rc.getLocation());
+                if (dist < waterDistance[0]) {
+                    this.closestWater = loc;
+                    waterDistance[0] = dist;
                 }
             }
-
-            // Try to designate as a representative. If there is a slot, fill it.
-            for (int i = 0; i < waterReps.length; i++) {
-                if(waterReps[i] == null) {
-                    waterReps[i] = loc;
-                    return;
-                }
-            }
-
-
-            // Otherwise replace randomly.
-            this.waterReps[this.rng.nextInt(Config.TRACKED_SOUP_COUNT)] = loc;
         });
+
+        // Scan for soup with no nearby miners.
     }
 
     /** Implements roaming behavior, where the drone roams until it finds an enemy somewhere. */
     public Transition roaming(RobotController rc) throws GameActionException {
-        boolean isWaterToGoTo = false;
-        for (MapLocation loc : waterReps) {
-            if (loc != null) {
-                isWaterToGoTo = true;
-                break;
-            }
-        }
-
         // Check if carrying anything. If so, transition to dunking.
-        if (rc.isCurrentlyHoldingUnit() && isWaterToGoTo) {
+        if (rc.isCurrentlyHoldingUnit() && closestWater != null) {
             return new Transition(DroneState.DUNKING, false);
         }
 
-        //Look for enemy robot. If see one and not currently holding a unit, transition to chasing.
+        // Look for enemy robot. If see one and not currently holding a unit, transition to chasing.
         if (!rc.isCurrentlyHoldingUnit()) {
             RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
             for (RobotInfo nearbyEnemy : enemyRobots) {
@@ -149,7 +129,7 @@ public strictfp class DeliveryDrone extends Unit {
 
     /** Travel behavior, where a drone travels to a known water location to dunk. */
     public Transition dunking(RobotController rc) throws GameActionException {
-        //If not carrying anything, transition to roaming.
+        // If not carrying anything, transition to roaming.
         if (!rc.isCurrentlyHoldingUnit()) {
             return new Transition(DroneState.ROAMING, false);
         }
@@ -164,22 +144,11 @@ public strictfp class DeliveryDrone extends Unit {
 
         // If no pathfinder, create it to the closest water.
         if (this.pathfinder == null) {
-            MapLocation closest = waterReps[0];
-            int bestDistance = waterReps[0] == null ? Integer.MAX_VALUE : closest.distanceSquaredTo(rc.getLocation());
-            for (int i = 1; i < waterReps.length; i++) {
-                if (waterReps[i] == null) continue;
-                int dist = waterReps[i].distanceSquaredTo(rc.getLocation());
-                if (dist >= bestDistance) continue;
-
-                closest = waterReps[i];
-                bestDistance = dist;
-            }
-
             // If all water has been unflooded, cry a little and roam.
-            if (closest == null) {
+            if (closestWater == null) {
                 return new Transition(DroneState.ROAMING, false);
             } else {
-                this.pathfinder = this.newPathfinder(closest, true);
+                this.pathfinder = this.newPathfinder(closestWater, true);
             }
         }
 
@@ -191,72 +160,51 @@ public strictfp class DeliveryDrone extends Unit {
     }
 
     public Transition chasing(RobotController rc) throws GameActionException {
-        boolean isWaterToGoTo = false;
-        for (MapLocation loc : waterReps) {
-            if (loc != null) {
-                isWaterToGoTo = true;
-                break;
-            }
-        }
         MapLocation droneLoc = rc.getLocation();
 
-        //Check if carrying anything. If so, transition to dunking.
-        if (rc.isCurrentlyHoldingUnit() && isWaterToGoTo) {
+        // Check if carrying anything. If so, transition to dunking.
+        if (rc.isCurrentlyHoldingUnit() && closestWater != null) {
             return new Transition(DroneState.DUNKING, false);
         }
 
-        //Look for enemy robot. If see one, identify closest unit that can be picked up and move towards it.
-        //If can already pick up unit, do so and transition to dunking.
-        //First, identify map location of closest enemy unit that can be picked up
-        MapLocation closestEnemyLoc = droneLoc;
-        int closestEnemyDist = 500;
+        // Look for enemy robot. If see one, identify closest unit that can be picked up and move towards it.
+        // If can already pick up unit, do so and transition to dunking.
         if (!rc.isCurrentlyHoldingUnit()) {
-            RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-            for (RobotInfo nearbyEnemy : enemyRobots) {
-                if (nearbyEnemy.type.canBePickedUp()) {
-                    if (rc.canPickUpUnit(nearbyEnemy.ID)) {
-                        rc.pickUpUnit(nearbyEnemy.ID);
-                        return new Transition(DroneState.DUNKING, true);
-                    }
-                    int enemyDist = droneLoc.distanceSquaredTo(nearbyEnemy.location);
-                    if (enemyDist < closestEnemyDist) {
-                        closestEnemyDist = enemyDist;
-                        closestEnemyLoc = nearbyEnemy.location;
+            Utils.ClosestRobot closest = Utils.closestRobot(rc, robot -> robot.type.canBePickedUp(), rc.getTeam().opponent());
+
+            // If no close, swap back to roaming.
+            if (closest.robot == null) return new Transition(DroneState.ROAMING, false);
+
+            // Pick it up if adjacent.
+            if (rc.canPickUpUnit(closest.robot.getID())) {
+                rc.pickUpUnit(closest.robot.getID());
+                return new Transition(DroneState.DUNKING, true);
+            }
+
+            // Otherwise path towards it.
+            // TODO: Implement better chasing movement.
+            Direction straightToClosest = droneLoc.directionTo(closest.robot.getLocation());
+            if (rc.canMove(straightToClosest)) {
+                rc.move(straightToClosest);
+                return new Transition(DroneState.CHASING, true);
+            } else if (rc.canMove(straightToClosest.rotateLeft())) {
+                rc.move(straightToClosest.rotateLeft());
+                return new Transition(DroneState.CHASING, true);
+            } else if (rc.canMove(straightToClosest.rotateRight())) {
+                rc.move(straightToClosest.rotateRight());
+                return new Transition(DroneState.CHASING, true);
+            } else {
+                for (Direction adj : Direction.allDirections()) {
+                    if (adj == Direction.CENTER) continue;
+                    if (rc.canMove(adj)) {
+                        rc.move(adj);
+                        return new Transition(DroneState.CHASING, true);
                     }
                 }
             }
         }
 
-        // This if statement shouldn't trigger.
-        // If something goes wrong finding a nearby enemy's location, this should trigger and send the drone north.
-        if (closestEnemyDist == 500) {
-            closestEnemyLoc = droneLoc.add(Direction.NORTH);
-        }
-
-        // TODO: Implement better chasing movement
-        
-        // Drone tries to move directly towards target. If it can't, moves the first direction it can.
-        Direction straightToClosest = droneLoc.directionTo(closestEnemyLoc);
-        if (rc.canMove(straightToClosest)) {
-            rc.move(straightToClosest);
-            return new Transition(DroneState.CHASING, true);
-        } else if (rc.canMove(straightToClosest.rotateLeft())) {
-            rc.move(straightToClosest.rotateLeft());
-            return new Transition(DroneState.CHASING, true);
-        } else if (rc.canMove(straightToClosest.rotateRight())) {
-            rc.move(straightToClosest.rotateRight());
-            return new Transition(DroneState.CHASING, true);
-        }else {
-            for (Direction adj : Direction.allDirections()) {
-                if (adj == Direction.CENTER) continue;
-                if (rc.canMove(adj)) {
-                    rc.move(adj);
-                    return new Transition(DroneState.CHASING, true);
-                }
-            }
-        }
-
-        // If we get to here, something is wrong. Go to roaming and hope things work out.
+        // No unit to chase; go to roaming and hope things work out.
         return new Transition(DroneState.ROAMING,false);
     }
 }
