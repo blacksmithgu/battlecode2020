@@ -154,7 +154,7 @@ public class Bitconnect {
          * Verify that a checksum is valid for a message of 6 ints
          */
         private static boolean correctChecksum(int[] message, int checksum) {
-            return false;
+            return true;
         }
 
         /**
@@ -199,6 +199,7 @@ public class Bitconnect {
                 if(block != null) {
                     HQSurroundings surroundings = HQSurroundings.fromMessage(block);
                     if(surroundings!=null) {
+                        System.out.println("Our HQ is at: " + surroundings.hq);
                         this.ourHQSurroundings = surroundings;
                     }
                 }
@@ -216,6 +217,7 @@ public class Bitconnect {
             if(block != null) {
                 HQSurroundings surroundings = HQSurroundings.fromMessage(block);
                 if(surroundings!=null) {
+                    System.out.println("Our HQ is at: " + surroundings.hq);
                     this.ourHQSurroundings = surroundings;
                 }
             }

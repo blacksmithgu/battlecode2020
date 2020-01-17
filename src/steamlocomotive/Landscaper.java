@@ -129,7 +129,7 @@ public class Landscaper extends Unit {
                 rc.depositDirt(Direction.CENTER);
             }
         }
-        
+
         return new Transition(LandscaperState.BUILD_WALL, true);
     }
 
