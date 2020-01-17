@@ -73,6 +73,7 @@ public strictfp class DeliveryDrone extends Unit {
         // Update water knowledge by scanning surroundings.
         this.scanSurroundings(rc);
 
+        System.out.println("Started turn in state " + this.state);
         // Swap on current state.
         boolean madeAction;
         do {
@@ -104,6 +105,44 @@ public strictfp class DeliveryDrone extends Unit {
         if (closestWater != null && rc.canSenseLocation(closestWater) && !rc.senseFlooding(closestWater)) {
             closestWater = null;
         }
+
+        //Reset closestFriendlyMiner to null if it's not there anymore
+        if (closestFriendlyMiner != null && rc.canSenseLocation(closestFriendlyMiner)) {
+            RobotInfo shouldBeMiner = rc.senseRobotAtLocation(closestFriendlyMiner);
+            if (shouldBeMiner == null) {
+                closestFriendlyMiner = null;
+            }
+            else if (shouldBeMiner.type != RobotType.MINER || shouldBeMiner.team != rc.getTeam()) {
+                closestFriendlyMiner = null;
+            }
+        }
+
+        //Reset closestEnemyLandUnit to null if outdated
+        if (closestEnemyLandUnit != null && rc.canSenseLocation(closestEnemyLandUnit)) {
+            RobotInfo shouldBeEnemy = rc.senseRobotAtLocation(closestEnemyLandUnit);
+            if (shouldBeEnemy == null) {
+                closestEnemyLandUnit = null;
+            }
+            else if (shouldBeEnemy.team == rc.getTeam()) {
+                closestEnemyLandUnit = null;
+            }
+            else if (shouldBeEnemy.type != RobotType.MINER || shouldBeEnemy.type != RobotType.LANDSCAPER) {
+                closestEnemyLandUnit = null;
+            }
+        }
+
+        //Reset closestCow to null if outdated
+        if (closestCow != null && rc.canSenseLocation(closestCow)) {
+            RobotInfo shouldBeCow = rc.senseRobotAtLocation(closestCow);
+            if (shouldBeCow == null) {
+                closestCow = null;
+            }
+            else if (shouldBeCow.type != RobotType.COW) {
+                closestCow = null;
+            }
+        }
+
+        //TODO:  Also reset soup when appropriate
 
         // If you're wondering why the weird array gimmick, it's so we can use this
         // inside the lambda. Unfortunate, yes.
@@ -169,6 +208,7 @@ public strictfp class DeliveryDrone extends Unit {
                     }
                 }
             }
+
 
             //Update soup representatives
 
@@ -313,10 +353,18 @@ public strictfp class DeliveryDrone extends Unit {
             return new Transition(DroneState.DUNKING, false);
         }
 
+        //It's possible that the miner we're looking for has disappeared. In that case, go back to roaming.
+        if (closestFriendlyMiner == null) {
+            return new Transition(DroneState.ROAMING,false);
+        }
+
         // If adjacent to a friendly miner, pick it up
         if (rc.getLocation().isAdjacentTo(closestFriendlyMiner)) {
-            Direction onMinerDirection = rc.getLocation().directionTo(closestFriendlyMiner);
             RobotInfo targetMinerInfo = rc.senseRobotAtLocation(closestFriendlyMiner);
+            if (targetMinerInfo == null) {
+                return new Transition(DroneState.ROAMING, false);
+            }
+            Direction onMinerDirection = rc.getLocation().directionTo(closestFriendlyMiner);
             if (rc.canPickUpUnit(targetMinerInfo.ID)) {
                 rc.pickUpUnit(targetMinerInfo.ID);
                 return new Transition(DroneState.FERRYING_MINER, true);
@@ -325,7 +373,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // If no pathfinder, create it to the closest friendly miner.
         if (this.pathfinder == null) {
-            // If all hard soup is gone, cry a little and roam.
+            // If we haven't seen any friendly miners, cry a little and roam.
             if (closestFriendlyMiner == null) {
                 return new Transition(DroneState.ROAMING, false);
             } else {
@@ -377,6 +425,9 @@ public strictfp class DeliveryDrone extends Unit {
     public boolean seemsInaccessible(RobotController rc, MapLocation loc) throws GameActionException {
         //Returns true iff loc contains soup and it seems like miners may need help getting to it
         //Right now, drones will err on the side of helping miners
+        if (closestFriendlyMiner == null) {
+            return true;
+        }
         if (rc.senseElevation(loc) > closestFriendlyMinerElevation + 3 || closestFriendlyMiner.distanceSquaredTo(loc) >=10) {
             return true;
         }
