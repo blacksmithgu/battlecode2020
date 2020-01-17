@@ -85,6 +85,8 @@ dependencies {
 
     // The Battlecode client.
     client group: 'org.battlecode', name: clientName, version: versions.battlecode
+
+    testCompile "org.mockito:mockito-core:1.+"
 }
 
 test {
