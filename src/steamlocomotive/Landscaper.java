@@ -123,12 +123,10 @@ public class Landscaper extends Unit {
             if (rc.isLocationOccupied(rc.adjacentLocation(digFrom))) {
                 lowPriority = digFrom;
             } else {
-                System.out.println("easy, dig opposite");
                 return digFrom;
             }
         }
         for (Direction direction : Direction.allDirections()) {
-            System.out.println("considering to dig from " + direction);
             if (rc.canDigDirt(direction) && ((rc.getLocation().add(direction).x % 2 == 0 && rc.getLocation().add(direction).y % 2 == 0) || breakLattice) && !Arrays.asList(wallLocations.adjacentWallSpots).contains(rc.getLocation().add(direction))) {
 
                 if (rc.isLocationOccupied(rc.adjacentLocation(direction))) {
@@ -149,7 +147,7 @@ public class Landscaper extends Unit {
 
     public Transition buildWall(RobotController rc) throws GameActionException {
 
-        System.out.println("building a wall ************");
+        System.out.println("Building a wall");
         if (comms.isWallDone(rc)) {
             equalize = true;
         }
@@ -191,11 +189,13 @@ public class Landscaper extends Unit {
 
         MapLocation temp = wallLocations.adjacentWallSpots[wallIdxTarget];
         System.out.println(temp);
-        if (rc.canSenseLocation(temp) && rc.isLocationOccupied(temp)) {
+        while (rc.canSenseLocation(temp) && rc.isLocationOccupied(temp)) {
             wallIdxTarget += 1;
             if (wallIdxTarget >= wallLocations.adjacentWallSpots.length) {
                 wallIdxTarget -= 1;
                 return new Transition(LandscaperState.ROAMING, false);
+            } else {
+                temp = wallLocations.adjacentWallSpots[wallIdxTarget];
             }
         }
         if (rc.getLocation().distanceSquaredTo(temp) <= 2) {
@@ -271,6 +271,13 @@ public class Landscaper extends Unit {
     }
 
     public Transition roaming(RobotController rc) throws GameActionException {
+
+        MapLocation pos = rc.getLocation();
+        for (int i = 0; i < wallLocations.adjacentWallSpots.length; i++) {
+            if (pos.equals(wallLocations.adjacentWallSpots[i])) {
+                return new Transition(LandscaperState.BUILD_WALL, false);
+            }
+        }
 
         // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {

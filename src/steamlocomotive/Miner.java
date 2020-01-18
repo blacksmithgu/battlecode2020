@@ -259,7 +259,7 @@ public class Miner extends Unit {
         for (Direction adj : Direction.allDirections()) {
             if (adj == Direction.CENTER) continue;
             if (rc.canBuildRobot(RobotType.DESIGN_SCHOOL, adj)) {
-                if (this.rng.nextInt(2)==1){
+                if (this.rng.nextInt(4)!=1){
                     rc.buildRobot(RobotType.DESIGN_SCHOOL, adj);
                 } else {
                     rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
