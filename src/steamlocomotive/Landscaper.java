@@ -43,15 +43,15 @@ public class Landscaper extends Unit {
     private Bitconnect comms;
     // Our and enemy HQ locations.
     private MapLocation ourHQLoc, enemyHQLoc;
-    //wall locations
+    // wall locations
     private Bitconnect.HQSurroundings wallLocations;
     // Pathfinder object for stateful pathfinding.
     private BugPathfinder pathfinder;
     // The number of steps taken with the current pathfinder.
     private int pathfindSteps;
-    //wall location index target
+    // wall location index target
     private int wallIdxTarget = 0;
-    //how many times a landscaper will tolerate moving away from the goal when going towards a wall
+    // how many times a landscaper will tolerate moving away from the goal when going towards a wall
     private int patience = 30;
     //whether the wall should be equalized in elevation
     private boolean equalize = false;
@@ -74,25 +74,13 @@ public class Landscaper extends Unit {
         do {
             Transition trans;
             switch (this.state) {
-                case BUILD_WALL:
-                    trans = this.buildWall(rc);
-                    break;
-                case MOVE_TO_WALL:
-                    trans = this.moveToWall(rc);
-                    break;
-                case BURY_ENEMY:
-                    trans = this.buryEnemy(rc);
-                    break;
-                case UNBURY_ALLY:
-                    trans = this.unburyAlly(rc);
-                    break;
-                case TERRAFORM:
-                    trans = this.terraform(rc);
-                    break;
+                case BUILD_WALL: trans = this.buildWall(rc); break;
+                case MOVE_TO_WALL: trans = this.moveToWall(rc); break;
+                case BURY_ENEMY: trans = this.buryEnemy(rc); break;
+                case UNBURY_ALLY: trans = this.unburyAlly(rc); break;
+                case TERRAFORM: trans = this.terraform(rc); break;
                 default:
-                case ROAMING:
-                    trans = this.roaming(rc);
-                    break;
+                case ROAMING: trans = this.roaming(rc); break;
             }
 
             // Reset transient miner state.
@@ -146,11 +134,8 @@ public class Landscaper extends Unit {
     }
 
     public Transition buildWall(RobotController rc) throws GameActionException {
+        if (comms.isWallDone(rc)) equalize = true;
 
-        System.out.println("Building a wall");
-        if (comms.isWallDone(rc)) {
-            equalize = true;
-        }
         Direction digFrom = digOppositeSmart(rc, rc.getLocation().directionTo(ourHQLoc), true);
         Direction depositLoc = Direction.CENTER;
         int height = rc.senseElevation(rc.adjacentLocation(depositLoc));
@@ -176,9 +161,6 @@ public class Landscaper extends Unit {
     }
 
     public Transition moveToWall(RobotController rc) throws GameActionException {
-
-        //System.out.println("wall location size " + wallLocations.adjacentWallSpots.length);
-        //System.out.println("moving towards wall");
         //check if in position
         MapLocation pos = rc.getLocation();
         for (int i = 0; i < wallLocations.adjacentWallSpots.length; i++) {
@@ -270,6 +252,7 @@ public class Landscaper extends Unit {
         return new Transition(LandscaperState.ROAMING, true);
     }
 
+    /** The landscaper is wandering around looking for something to do. */
     public Transition roaming(RobotController rc) throws GameActionException {
         int smallest = 99999;
         for (Direction dir : Direction.allDirections()){
@@ -279,9 +262,9 @@ public class Landscaper extends Unit {
                 if (smallest>scanHeight)
                     smallest=scanHeight;
             }
-
         }
-        for (Direction dir : Direction.allDirections()){
+
+        for (Direction dir : Direction.allDirections()) {
             if (rc.canSenseLocation(rc.adjacentLocation(dir)) && isImportantTile(rc, rc.adjacentLocation(dir), 5) && rc.senseElevation(rc.adjacentLocation(dir))-1<smallest){
                 if (rc.canDepositDirt(dir)){
                     rc.depositDirt(dir);
@@ -308,13 +291,12 @@ public class Landscaper extends Unit {
             // TODO: More intelligent target selection. We choose randomly for now.
             MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
             for (int i = 0; i < 100; i ++){
-                if (!isImportantTile(rc, target, 5)){
+                if (!onCheckerboard(rc, target, 5)) {
                     target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
                 } else {
                     break;
                 }
             }
-
 
             this.pathfinder = this.newPathfinder(target, true);
             this.pathfindSteps = 0;
@@ -328,39 +310,30 @@ public class Landscaper extends Unit {
         return new Transition(LandscaperState.ROAMING, true);
     }
 
+    /** Returns true if this tile is on the checkerboard and should thus be filled in. */
+    public boolean onCheckerboard(RobotController rc, MapLocation loc, int dist) throws GameActionException {
+        return loc.x % 2 == loc.y % 2 && isImportantTile(rc, loc, dist);
+    }
+
+    /** Returns true if this tile is along the line from our HQ to the enemy HQ. */
     public boolean isImportantTile(RobotController rc, MapLocation loc, int dist) throws GameActionException {
-        if (loc.x % 2 == 0 && loc.y % 2 == 0){
-            return false;
-        }
-        if (rc.getLocation().distanceSquaredTo(ourHQLoc)<20)
-            return false;
-        int x0 = loc.x;
-        int y0 = loc.y;
-        int x1 = ourHQLoc.x;
-        int x2 = enemyHQLoc.x;
-        int y1 = ourHQLoc.y;
-        int y2 = enemyHQLoc.y;
+        if (loc.x % 2 == 0 && loc.y % 2 == 0) return false;
+        if (rc.getLocation().distanceSquaredTo(ourHQLoc)<20) return false;
+
+        int x0 = loc.x, y0 = loc.y, x1 = ourHQLoc.x, x2 = enemyHQLoc.x, y1 = ourHQLoc.y, y2 = enemyHQLoc.y;
         double top = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
         double bottom = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
-        if (top / bottom < dist) {
-            return true;
-        }
-        return false;
+        return top / bottom < dist;
     }
 
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
         comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
         wallLocations = comms.getWallLocations(rc);
-        if (wallLocations == null) {
-            System.out.println("Niels my landscapers aren't getting comms");
-        }
+
+        // TODO: Actually figure out where the enemy HQ is.
         ourHQLoc = wallLocations.hq;
         enemyHQLoc = new MapLocation(rc.getMapWidth()-ourHQLoc.x-1,rc.getMapHeight()-ourHQLoc.y-1);
-        if (comms.isWallDone(rc)) {
-            System.out.println("WALL IS DONE");
-            state = LandscaperState.ROAMING;
-        }
-        //enemyHQLoc = wallLocations.hq;
+        if (comms.isWallDone(rc)) state = LandscaperState.ROAMING;
     }
 }
