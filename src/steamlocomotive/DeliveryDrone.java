@@ -20,7 +20,9 @@ public strictfp class DeliveryDrone extends Unit {
         // The drone finds a friendly miner to put on soup
         FINDING_MINER,
         // The drone puts a friendly miner on top of hard-to-reach soup
-        FERRYING_MINER
+        FERRYING_MINER,
+        // The drone looks for an enemy that it saw earlier
+        FINDING_ENEMY
     }
 
     private static class Transition {
@@ -83,6 +85,7 @@ public strictfp class DeliveryDrone extends Unit {
                 case DUNKING: trans = this.dunking(rc); break;
                 case FINDING_MINER: trans = this.findingMiner(rc); break;
                 case FERRYING_MINER: trans = this.ferryingMiner(rc); break;
+                case FINDING_ENEMY: trans = this.findingEnemy(rc); break;
                 default:
                 case ROAMING: trans = this.roaming(rc); break;
             }
@@ -142,6 +145,13 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
+        //Reset closest soup to null if there's no longer soup
+        if (closestHardSoup != null && rc.canSenseLocation(closestHardSoup)) {
+            if (rc.senseSoup(closestHardSoup) == 0) {
+                closestHardSoup = null;
+            }
+        }
+
         //TODO:  Also reset soup when appropriate
 
         // If you're wondering why the weird array gimmick, it's so we can use this
@@ -164,7 +174,6 @@ public strictfp class DeliveryDrone extends Unit {
                 }
             }
             else {
-                //TODO:  If any locations no longer contain what they're supposed to, set to null
                 //Update locations of robots and cows
                 RobotInfo nearbyRobot = rc.senseRobotAtLocation(loc);
                 if (nearbyRobot != null) {
@@ -276,7 +285,12 @@ public strictfp class DeliveryDrone extends Unit {
         for (Direction dir : Direction.allDirections()) {
             if (rc.canDropUnit(dir) && rc.senseFlooding(rc.getLocation().add(dir))) {
                 rc.dropUnit(dir);
-                return new Transition(DroneState.ROAMING, true);
+                if (closestEnemyLandUnit != null) {
+                    return new Transition(DroneState.FINDING_ENEMY, true);
+                }
+                else {
+                    return new Transition(DroneState.ROAMING, true);
+                }
             }
         }
 
@@ -358,6 +372,8 @@ public strictfp class DeliveryDrone extends Unit {
             return new Transition(DroneState.ROAMING,false);
         }
 
+        //TODO:  If miner is already very close (adjacent) to soup, then don't pick it up
+
         // If adjacent to a friendly miner, pick it up
         if (rc.getLocation().isAdjacentTo(closestFriendlyMiner)) {
             RobotInfo targetMinerInfo = rc.senseRobotAtLocation(closestFriendlyMiner);
@@ -395,12 +411,31 @@ public strictfp class DeliveryDrone extends Unit {
             return new Transition(DroneState.ROAMING, false);
         }
 
+        // If something has happened to our destination, drop the miner
+        if (closestHardSoup == null) {
+            for (Direction adj : Direction.allDirections()) {
+                if (adj == Direction.CENTER) continue;
+                if (!rc.senseFlooding(rc.getLocation().add(adj)) && rc.canDropUnit(adj)) {
+                    rc.dropUnit(adj);
+                    return new Transition(DroneState.ROAMING, true);
+                }
+            }
+        }
+
         // If we can drop miner on soup location, immediately do so and go back to roaming
         if (rc.getLocation().isAdjacentTo(closestHardSoup)) {
             Direction onSoupDirection = rc.getLocation().directionTo(closestHardSoup);
             if (rc.canDropUnit(rc.getLocation().directionTo(closestHardSoup))) {
                 rc.dropUnit(onSoupDirection);
                 return new Transition(DroneState.ROAMING, true);
+            }
+            //If can't drop it directly on the tile, drop miner on any non-flooded tile
+            for (Direction adj : Direction.allDirections()) {
+                if (adj == Direction.CENTER) continue;
+                if (!rc.senseFlooding(rc.getLocation().add(adj)) && rc.canDropUnit(adj)) {
+                    rc.dropUnit(adj);
+                    return new Transition(DroneState.ROAMING, true);
+                }
             }
         }
 
@@ -420,6 +455,44 @@ public strictfp class DeliveryDrone extends Unit {
 
         return new Transition(DroneState.FERRYING_MINER, true);
     }
+
+    public Transition findingEnemy(RobotController rc) throws GameActionException {
+        // If carrying anything, transition to dunking.
+        // This shouldn't happen, but it's here just in case
+        if (rc.isCurrentlyHoldingUnit()) {
+            return new Transition(DroneState.DUNKING, false);
+        }
+
+        // If there's no longer an enemy where we thought there was, give up the hunt and start roaming.
+        if (closestEnemyLandUnit == null) {
+            return new Transition(DroneState.ROAMING, false);
+        }
+
+        // If we see an enemy, transition to chasing it
+        RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        for (RobotInfo nearbyEnemy : enemyRobots) {
+            if (nearbyEnemy.type.canBePickedUp()) {
+                return new Transition(DroneState.CHASING, false);
+            }
+        }
+
+        // If no pathfinder, create it to the closest enemy.
+        if (this.pathfinder == null) {
+            // If don't know where an enemy is, cry a little and roam.
+            if (closestEnemyLandUnit == null) {
+                return new Transition(DroneState.ROAMING, false);
+            } else {
+                this.pathfinder = this.newPathfinder(closestEnemyLandUnit, true);
+            }
+        }
+
+        // Obtain a movement from the pathfinder and follow it.
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
+        if (move != null && move != Direction.CENTER) rc.move(move);
+
+        return new Transition(DroneState.FINDING_ENEMY, true);
+    }
+
 
 
     public boolean seemsInaccessible(RobotController rc, MapLocation loc) throws GameActionException {
