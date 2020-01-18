@@ -267,10 +267,34 @@ public class Landscaper extends Unit {
     }
 
     public Transition terraform(RobotController rc) throws GameActionException {
-        return new Transition(LandscaperState.BUILD_WALL, true);
+        return new Transition(LandscaperState.ROAMING, true);
     }
 
     public Transition roaming(RobotController rc) throws GameActionException {
+        int smallest = 99999;
+        for (Direction dir : Direction.allDirections()){
+            MapLocation checkLocation = rc.getLocation().add(dir).add(dir);
+            if (rc.onTheMap(checkLocation) && rc.canSenseLocation(checkLocation)){
+                int scanHeight = rc.senseElevation(checkLocation);
+                if (smallest>scanHeight)
+                    smallest=scanHeight;
+            }
+
+        }
+        for (Direction dir : Direction.allDirections()){
+            if (rc.canSenseLocation(rc.adjacentLocation(dir)) && isImportantTile(rc, rc.adjacentLocation(dir), 5) && rc.senseElevation(rc.adjacentLocation(dir))-1<smallest){
+                if (rc.canDepositDirt(dir)){
+                    rc.depositDirt(dir);
+                    return new Transition(LandscaperState.ROAMING, true);
+                } else {
+                    Direction digFrom = digOppositeSmart(rc, Direction.NORTH, false);
+                    if (rc.canDigDirt(digFrom)){
+                        rc.digDirt(digFrom);
+                        return new Transition(LandscaperState.ROAMING, true);
+                    }
+                }
+            }
+        }
 
         MapLocation pos = rc.getLocation();
         for (int i = 0; i < wallLocations.adjacentWallSpots.length; i++) {
@@ -283,6 +307,14 @@ public class Landscaper extends Unit {
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
             // TODO: More intelligent target selection. We choose randomly for now.
             MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
+            for (int i = 0; i < 100; i ++){
+                if (!isImportantTile(rc, target, 5)){
+                    target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
+                } else {
+                    break;
+                }
+            }
+
 
             this.pathfinder = this.newPathfinder(target, true);
             this.pathfindSteps = 0;
@@ -297,6 +329,11 @@ public class Landscaper extends Unit {
     }
 
     public boolean isImportantTile(RobotController rc, MapLocation loc, int dist) throws GameActionException {
+        if (loc.x % 2 == 0 && loc.y % 2 == 0){
+            return false;
+        }
+        if (rc.getLocation().distanceSquaredTo(ourHQLoc)<20)
+            return false;
         int x0 = loc.x;
         int y0 = loc.y;
         int x1 = ourHQLoc.x;
@@ -319,6 +356,7 @@ public class Landscaper extends Unit {
             System.out.println("Niels my landscapers aren't getting comms");
         }
         ourHQLoc = wallLocations.hq;
+        enemyHQLoc = new MapLocation(rc.getMapWidth()-ourHQLoc.x-1,rc.getMapHeight()-ourHQLoc.y-1);
         if (comms.isWallDone(rc)) {
             System.out.println("WALL IS DONE");
             state = LandscaperState.ROAMING;
