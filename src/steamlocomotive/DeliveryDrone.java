@@ -5,10 +5,8 @@ import battlecode.common.*;
 import java.awt.*;
 
 public strictfp class DeliveryDrone extends Unit {
-    //TODO implement behavior where drones carry miners to unreachable soup (e.g. TwoForOneAndTwoForAll)
     //TODO implement interactions with cows (drowning them, dropping them on enemies, or both)
     //TODO make drones stay out of range of enemy net shooters and HQ
-    //TODO: after dunking enemy unit, go to closestEnemyLandUnit to find another
 
     public enum DroneState {
         // The drone looks for hapless victims.
@@ -22,7 +20,13 @@ public strictfp class DeliveryDrone extends Unit {
         // The drone puts a friendly miner on top of hard-to-reach soup
         FERRYING_MINER,
         // The drone looks for an enemy that it saw earlier
-        FINDING_ENEMY
+        FINDING_ENEMY,
+        // The drone goes to where it last saw a cow
+        FINDING_COW,
+        // The drone chases down and picks up a cow
+        CHASING_COW,
+        // The drone goes to the enemy HQ (or looks for it if knows where friendly HQ is)
+        GOING_TO_ENEMY_HQ
     }
 
     private static class Transition {
@@ -55,6 +59,10 @@ public strictfp class DeliveryDrone extends Unit {
     private MapLocation friendlyHQLoc;
     // Enemy team's HQ location
     private MapLocation enemyHQLoc;
+    // Locations the enemy HQ might be at, based on symmetry
+    private MapLocation[] enemyHQPossible;
+    // Tracks whether drone has already checked possible enemy HQ locations
+    private boolean[] enemyHQChecklist;
 
 
     public DeliveryDrone(int id) {
@@ -68,6 +76,8 @@ public strictfp class DeliveryDrone extends Unit {
         this.closestFriendlyMinerElevation = 0;
         this.friendlyHQLoc = null;
         this.enemyHQLoc = null;
+        this.enemyHQPossible = null;
+        this.enemyHQChecklist = new boolean[]{false, false, false};
         this.state = DroneState.ROAMING;
     }
 
@@ -75,6 +85,14 @@ public strictfp class DeliveryDrone extends Unit {
         // Update water knowledge by scanning surroundings.
         this.scanSurroundings(rc);
 
+        for (int i=0; i <= 2; i++) {
+            if (enemyHQChecklist[i]) {
+                System.out.println("True");
+            }
+            else {
+                System.out.println("False");
+            }
+        }
         System.out.println("Started turn in state " + this.state);
         // Swap on current state.
         boolean madeAction;
@@ -86,6 +104,9 @@ public strictfp class DeliveryDrone extends Unit {
                 case FINDING_MINER: trans = this.findingMiner(rc); break;
                 case FERRYING_MINER: trans = this.ferryingMiner(rc); break;
                 case FINDING_ENEMY: trans = this.findingEnemy(rc); break;
+                case FINDING_COW: trans = this.findingCow(rc); break;
+                case CHASING_COW: trans = this.chasingCow(rc); break;
+                case GOING_TO_ENEMY_HQ: trans = this.goingToEnemyHQ(rc); break;
                 default:
                 case ROAMING: trans = this.roaming(rc); break;
             }
@@ -129,7 +150,7 @@ public strictfp class DeliveryDrone extends Unit {
             else if (shouldBeEnemy.team == rc.getTeam()) {
                 closestEnemyLandUnit = null;
             }
-            else if (shouldBeEnemy.type != RobotType.MINER || shouldBeEnemy.type != RobotType.LANDSCAPER) {
+            else if (shouldBeEnemy.type != RobotType.MINER && shouldBeEnemy.type != RobotType.LANDSCAPER) {
                 closestEnemyLandUnit = null;
             }
         }
@@ -258,6 +279,11 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
+        //If drone knows where a cow is, it chases after it.
+        if (closestCow != null && !rc.isCurrentlyHoldingUnit()) {
+            return new Transition(DroneState.FINDING_COW, false);
+        }
+
         // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation())) {
             // TODO: More intelligent target selection. We choose randomly for now.
@@ -380,7 +406,6 @@ public strictfp class DeliveryDrone extends Unit {
             if (targetMinerInfo == null) {
                 return new Transition(DroneState.ROAMING, false);
             }
-            Direction onMinerDirection = rc.getLocation().directionTo(closestFriendlyMiner);
             if (rc.canPickUpUnit(targetMinerInfo.ID)) {
                 rc.pickUpUnit(targetMinerInfo.ID);
                 return new Transition(DroneState.FERRYING_MINER, true);
@@ -493,7 +518,102 @@ public strictfp class DeliveryDrone extends Unit {
         return new Transition(DroneState.FINDING_ENEMY, true);
     }
 
+    public Transition findingCow(RobotController rc) throws GameActionException {
+        // If carrying anything, transition to dunking.
+        // This shouldn't happen, but it's here just in case
+        if (rc.isCurrentlyHoldingUnit()) {
+            return new Transition(DroneState.DUNKING, false);
+        }
 
+        // If there's no longer a cow where we thought there was, give up the hunt and start roaming.
+        if (closestCow == null) {
+            return new Transition(DroneState.ROAMING, false);
+        }
+
+        // If we see an enemy, transition to chasing it
+        RobotInfo[] enemyRobots = rc.senseNearbyRobots();
+        for (RobotInfo nearbyEnemy : enemyRobots) {
+            if (nearbyEnemy.type.canBePickedUp() && nearbyEnemy.team == rc.getTeam().opponent()) {
+                return new Transition(DroneState.CHASING, false);
+            }
+        }
+
+        // If we see a cow, transition to chasing it
+        for (RobotInfo nearbyEnemy : enemyRobots) {
+            if (nearbyEnemy.type == RobotType.COW) {
+                return new Transition(DroneState.CHASING_COW, false);
+            }
+        }
+
+        // If no pathfinder, create it to the closest cow.
+        if (this.pathfinder == null) {
+            // If don't know where an enemy is, cry a little and roam.
+            if (closestCow == null) {
+                return new Transition(DroneState.ROAMING, false);
+            } else {
+                this.pathfinder = this.newPathfinder(closestCow, true);
+            }
+        }
+
+        // Obtain a movement from the pathfinder and follow it.
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
+        if (move != null && move != Direction.CENTER) rc.move(move);
+
+        return new Transition(DroneState.FINDING_COW, true);
+    }
+
+    public Transition chasingCow(RobotController rc) throws GameActionException {
+        MapLocation droneLoc = rc.getLocation();
+
+        // Check if carrying anything. If so, transition to dunking.
+        if (rc.isCurrentlyHoldingUnit() && closestWater != null) {
+            return new Transition(DroneState.DUNKING, false);
+        }
+
+        // Look for cows. If see one, identify closest cow and move towards it.
+        // If can already pick up unit, do so and transition to dunking.
+        if (!rc.isCurrentlyHoldingUnit()) {
+            Utils.ClosestRobot closest = Utils.closestRobot(rc, robot -> robot.type == RobotType.COW, Team.NEUTRAL);
+
+            // If not close, swap back to roaming.
+            if (closest.robot == null) return new Transition(DroneState.ROAMING, false);
+
+            // Pick it up if adjacent.
+            if (rc.canPickUpUnit(closest.robot.getID())) {
+                rc.pickUpUnit(closest.robot.getID());
+                return new Transition(DroneState.DUNKING, true);
+            }
+
+            // Otherwise move towards it.
+            // TODO: Implement better chasing movement.
+            Direction straightToClosest = droneLoc.directionTo(closest.robot.getLocation());
+            if (rc.canMove(straightToClosest)) {
+                rc.move(straightToClosest);
+                return new Transition(DroneState.CHASING_COW, true);
+            } else if (rc.canMove(straightToClosest.rotateLeft())) {
+                rc.move(straightToClosest.rotateLeft());
+                return new Transition(DroneState.CHASING_COW, true);
+            } else if (rc.canMove(straightToClosest.rotateRight())) {
+                rc.move(straightToClosest.rotateRight());
+                return new Transition(DroneState.CHASING_COW, true);
+            } else {
+                for (Direction adj : Direction.allDirections()) {
+                    if (adj == Direction.CENTER) continue;
+                    if (rc.canMove(adj)) {
+                        rc.move(adj);
+                        return new Transition(DroneState.CHASING_COW, true);
+                    }
+                }
+            }
+        }
+
+        // No unit to chase; go to roaming and hope things work out.
+        return new Transition(DroneState.ROAMING,false);
+    }
+
+    public Transition goingToEnemyHQ(RobotController rc) throws GameActionException {
+        return new Transition(DroneState.ROAMING, true);
+    }
 
     public boolean seemsInaccessible(RobotController rc, MapLocation loc) throws GameActionException {
         //Returns true iff loc contains soup and it seems like miners may need help getting to it
@@ -501,7 +621,7 @@ public strictfp class DeliveryDrone extends Unit {
         if (closestFriendlyMiner == null) {
             return true;
         }
-        if (rc.senseElevation(loc) > closestFriendlyMinerElevation + 3 || closestFriendlyMiner.distanceSquaredTo(loc) >=10) {
+        if (rc.senseElevation(loc) > closestFriendlyMinerElevation + 3 || closestFriendlyMiner.distanceSquaredTo(loc) >=10 || rc.senseElevation(loc) < closestFriendlyMinerElevation - 3) {
             return true;
         }
         return false;
