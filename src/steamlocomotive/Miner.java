@@ -197,7 +197,8 @@ public class Miner extends Unit {
                 // Build a fulfillment center if necessary.
                 // TODO: Change these into constants.
                 if (rc.getRoundNum() > 200 && rc.getTeamSoup() > 400) {
-                    return new Transition(MinerState.DREAMING_ABOUT_FULFILLMENT, true);
+                    if (this.rng.nextInt(100)<20)
+                        return new Transition(MinerState.DREAMING_ABOUT_FULFILLMENT, true);
                 }
 
                 return new Transition(MinerState.TRAVEL, true);
@@ -258,7 +259,12 @@ public class Miner extends Unit {
         for (Direction adj : Direction.allDirections()) {
             if (adj == Direction.CENTER) continue;
             if (rc.canBuildRobot(RobotType.DESIGN_SCHOOL, adj)) {
-                rc.buildRobot(RobotType.DESIGN_SCHOOL, adj);
+                if (this.rng.nextInt(2)==1){
+                    rc.buildRobot(RobotType.DESIGN_SCHOOL, adj);
+                } else {
+                    rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
+                }
+
                 return new Transition(MinerState.TRAVEL, true);
             }
         }
