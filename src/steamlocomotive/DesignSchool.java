@@ -8,7 +8,7 @@ public class DesignSchool extends Unit {
         super(id);
     }
 
-    int numEarlyLandscapersBuilt = 0;
+    int numLandscapersBuilt = 0;
     boolean isNearHQ = false;
     Team schoolTeam;
     MapLocation myHQLoc;
@@ -27,21 +27,29 @@ public class DesignSchool extends Unit {
         // Design school builds landscapers early, but not a lot
         // Similarly to drones, this should be insurance against rush.
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
-        if (rc.getRoundNum() < 100 && numEarlyLandscapersBuilt <= 2) {
+        if (rc.getRoundNum() < 100 && numLandscapersBuilt < 2) {
             for (Direction adj : Direction.allDirections()) {
                 if (adj == Direction.CENTER) continue;
                 if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
                     rc.buildRobot(RobotType.LANDSCAPER, adj);
-                    numEarlyLandscapersBuilt++;
+                    numLandscapersBuilt++;
                     return;
                 }
             }
+        }
+
+        // The design school near the HQ builds 8 landscapers quickly, so that the wall gets up as fast as possible
+        // Only does this building every other turn so that the first design school can get out its early drones
+        if (isNearHQ && numLandscapersBuilt < 8 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost && currentRound % 2 == myID % 2) {
+            buildLandscaperBasic(rc);
+            numLandscapersBuilt++;
         }
 
         // If the HQ has dirt on it and friendly landscapers don't outnumber enemy landscapers, build landscaper
         if (isNearHQ && rc.canSenseLocation(myHQLoc)) {
             if (rc.getTeamSoup() >= RobotType.LANDSCAPER.cost && hqNeedsHelp(rc, myHQLoc, nearbyRobots, schoolTeam)) {
                     buildLandscaperBasic(rc);
+                    numLandscapersBuilt++;
                     return;
             }
         }
