@@ -98,8 +98,8 @@ public strictfp class DeliveryDrone extends Unit {
     }
 
     public void run(RobotController rc, int turn) throws GameActionException {
-        // Update water knowledge by scanning surroundings.
-        if (this.state == DroneState.FINDING_LANDSCAPER || this.state == DroneState.FERRYING_LANDSCAPER){
+        // Update water knowledge by scanning surroundings;
+        if (this.state == DroneState.FINDING_LANDSCAPER || this.state == DroneState.FERRYING_LANDSCAPER) {
             this.scanSurroundingsDumb(rc);
         } else {
             this.scanSurroundings(rc);
@@ -108,15 +108,6 @@ public strictfp class DeliveryDrone extends Unit {
         // Update our comms
         comms.updateForTurn(rc);
 
-        for (int i=0; i <= 2; i++) {
-            if (enemyHQChecklist[i]) {
-                System.out.println("True");
-            }
-            else {
-                System.out.println("False");
-            }
-        }
-        System.out.println("Started turn in state " + this.state);
         // Swap on current state.
         boolean madeAction;
         do {
@@ -208,8 +199,6 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-
-
         // If you're wondering why the weird array gimmick, it's so we can use this
         // inside the lambda. Unfortunate, yes.
         // TODO: Optimize this away by inlining traverse sensable.
@@ -291,17 +280,10 @@ public strictfp class DeliveryDrone extends Unit {
                     }
                 }
             }
-
-
-            //Update soup representatives
-
-
         });
-        // System.out.println(Clock.getBytecodesLeft() + "bytecodes left after scanning.");
     }
 
     public void scanSurroundingsDumb(RobotController rc) throws GameActionException {
-
         if (closestFriendlyLandscaper != null && rc.canSenseLocation(closestFriendlyLandscaper)) {
             RobotInfo shouldBeLandscaper = rc.senseRobotAtLocation(closestFriendlyLandscaper);
             if (shouldBeLandscaper == null) {
@@ -329,17 +311,14 @@ public strictfp class DeliveryDrone extends Unit {
                     if (dist < friendlyLandscaperDistance[0]) {
                         this.closestFriendlyLandscaper = rob.location;
                         friendlyLandscaperDistance[0] = dist;
-                        //closestFriendlyMinerElevation = rc.senseElevation(loc);
                     }
                 }
             }
         }
-
-        // System.out.println(Clock.getBytecodesLeft() + "bytecodes left after scanning.");
     }
+
     /** Searches for a friendly landscaper and picks it up so it then can drop it on the wall */
     public Transition findingLandscaper(RobotController rc) throws GameActionException {
-        System.out.println(closestFriendlyLandscaper);
         // If somehow holding a unit, dunk it
         // TODO: Be very very sure we won't dunk our own units
         if (rc.isCurrentlyHoldingUnit()) {
@@ -382,14 +361,12 @@ public strictfp class DeliveryDrone extends Unit {
 
     /** Deposits a friendly landscaper on the wall */
     public Transition ferryingLandscaper(RobotController rc) throws GameActionException {
-
         // If not carrying anything, transition to roaming.
         if (!rc.isCurrentlyHoldingUnit()) {
             return new Transition(DroneState.ROAMING, false);
         }
 
         MapLocation targetLoc = wallLocations.adjacentWallSpots[wallIdxTarget];
-
         while (rc.canSenseLocation(targetLoc) && rc.isLocationOccupied(targetLoc)) {
             wallIdxTarget += 1;
             if (wallIdxTarget >= wallLocations.adjacentWallSpots.length) {
@@ -410,21 +387,13 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        // If we can drop miner on wall location, immediately do so and go back to roaming
+        // If we can drop landscaper on wall location, immediately do so and go back to roaming
         if (rc.getLocation().isAdjacentTo(targetLoc)) {
             Direction onWallDirection = rc.getLocation().directionTo(targetLoc);
             if (rc.canDropUnit(rc.getLocation().directionTo(targetLoc))) {
                 rc.dropUnit(onWallDirection);
                 return new Transition(DroneState.ROAMING, true);
             }
-//            //If can't drop it directly on the tile, drop miner on any non-flooded tile
-//            for (Direction adj : Direction.allDirections()) {
-//                if (adj == Direction.CENTER) continue;
-//                if (!rc.senseFlooding(rc.getLocation().add(adj)) && rc.canDropUnit(adj)) {
-//                    rc.dropUnit(adj);
-//                    return new Transition(DroneState.ROAMING, true);
-//                }
-//            }
         }
 
         // If no pathfinder, create it to the closest hard-to-reach soup.
