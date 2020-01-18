@@ -98,7 +98,16 @@ public class Miner extends Unit {
         MapLocation[] sensedSoup = rc.senseNearbySoup();
         for (int i = 0; i < sensedSoup.length; i++) {
             MapLocation soupLoc = sensedSoup[i];
-            if (rc.canSenseLocation(soupLoc) && rc.senseFlooding(soupLoc)) continue;
+            if (rc.canSenseLocation(soupLoc) && rc.senseFlooding(soupLoc)) {
+                boolean hasSolidAdj = false;
+                for (Direction dir : Direction.allDirections()) {
+                    MapLocation adj = soupLoc.add(dir);
+                    if (dir == Direction.CENTER) continue;
+                    if (rc.canSenseLocation(adj) && !rc.senseFlooding(soupLoc.add(dir))) hasSolidAdj = true;
+                }
+
+                if (!hasSolidAdj) continue;
+            }
             this.soups.update(rc, soupLoc, this.rng);
         }
     }
