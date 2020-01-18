@@ -53,6 +53,8 @@ public class Landscaper extends Unit {
     private int wallIdxTarget = 0;
     //how many times a landscaper will tolerate moving away from the goal when going towards a wall
     private int patience = 30;
+    //whether the wall should be equalized in elevation
+    private boolean equalize = false;
 
     public Landscaper(int id) {
         super(id);
@@ -148,9 +150,25 @@ public class Landscaper extends Unit {
     public Transition buildWall(RobotController rc) throws GameActionException {
 
         System.out.println("building a wall ************");
+        if (comms.isWallDone(rc)) {
+            equalize = true;
+        }
         Direction digFrom = digOppositeSmart(rc, rc.getLocation().directionTo(ourHQLoc), true);
-        if (rc.canDepositDirt(Direction.CENTER)) {
-            rc.depositDirt(Direction.CENTER);
+        Direction depositLoc = Direction.CENTER;
+        int height = rc.senseElevation(rc.adjacentLocation(depositLoc));
+        if (equalize) {
+            for (Direction dir : Direction.allDirections()) {
+                if (Arrays.asList(wallLocations.adjacentWallSpots).contains(rc.adjacentLocation(dir))) {
+                    int tempHeight = rc.senseElevation(rc.adjacentLocation(dir));
+                    if (height > tempHeight) {
+                        depositLoc = dir;
+                        height = tempHeight;
+                    }
+                }
+            }
+        }
+        if (rc.canDepositDirt(depositLoc)) {
+            rc.depositDirt(depositLoc);
         } else {
             if (digFrom != null && rc.canDigDirt(digFrom)) {
                 rc.digDirt(digFrom);
