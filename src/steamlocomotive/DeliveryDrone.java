@@ -25,8 +25,10 @@ public strictfp class DeliveryDrone extends Unit {
         FINDING_COW,
         // The drone chases down and picks up a cow
         CHASING_COW,
-        // The drone goes to the enemy HQ (or looks for it if knows where friendly HQ is)
-        GOING_TO_ENEMY_HQ
+        // The drone goes to the enemy HQ
+        GOING_TO_ENEMY_HQ,
+        // The drone searches for the enemy HQ
+        SEARCHING_FOR_ENEMY_HQ
     }
 
     private static class Transition {
@@ -173,7 +175,7 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        //TODO:  Also reset soup when appropriate
+
 
         // If you're wondering why the weird array gimmick, it's so we can use this
         // inside the lambda. Unfortunate, yes.
@@ -244,15 +246,7 @@ public strictfp class DeliveryDrone extends Unit {
 
 
         });
-
-//        if (closestHardSoup != null) {
-//            System.out.println("Hard soup at " + closestHardSoup);
-//        }
-
-        //System.out.println("Closest friendly miner elevation is " + closestFriendlyMinerElevation);
-
-        System.out.println(Clock.getBytecodesLeft() + "bytecodes left after scanning.");
-        // TODO: Scan for soup with no nearby miners.
+        // System.out.println(Clock.getBytecodesLeft() + "bytecodes left after scanning.");
     }
 
     /** Implements roaming behavior, where the drone roams until it finds an enemy somewhere. */
@@ -612,6 +606,11 @@ public strictfp class DeliveryDrone extends Unit {
     }
 
     public Transition goingToEnemyHQ(RobotController rc) throws GameActionException {
+        if (enemyHQLoc != null) {
+            if (rc.isCurrentlyHoldingUnit() && rc.senseRobot(rc.senseRobot(rc.getID()).heldUnitID).type == RobotType.COW) {
+
+            }
+        }
         return new Transition(DroneState.ROAMING, true);
     }
 
