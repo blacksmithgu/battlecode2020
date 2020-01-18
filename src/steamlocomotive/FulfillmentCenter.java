@@ -14,31 +14,58 @@ public class FulfillmentCenter extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
-        //The center scans nearby robots at the start of each turn, then passes the result into many of its checks
+        // The center scans nearby robots at the start of each turn, then passes the result into many of its checks
+        // Soup amount is used in many places, so just call rc.getTeamSoup() once here
+        // Similarly for myID and currentRound
         RobotInfo[] nearbyRobots = rc.senseNearbyRobots();
+        int teamSoup = rc.getTeamSoup();
+        int myID = rc.getID();
+        int currentRound = rc.getRoundNum();
 
         //If fulfillment center is in range of enemy netgun or HQ, it doesn't build a drone.
         if (checkForNets(rc, nearbyRobots, centerTeam)) {
             return;
         }
 
-        //The fulfillment center checks if HQ needs help. If so, makes a drone.
+        // The fulfillment center checks if HQ needs help. If so, makes a drone.
         if(isNearHQ) {
-            if (isOutnumbered(rc, nearbyRobots, centerTeam)) {
+            if (isOutnumbered(rc, nearbyRobots, centerTeam) && teamSoup >= RobotType.DELIVERY_DRONE.cost) {
                 buildTowardsEnemy(rc, nearbyRobots);
+                //System.out.println("I am defending the base!");
                 return;
             }
         }
 
-        //Fulfillment center builds drones early, but not a lot
-        //Also builds lots of drones in late game
-        if (rc.getRoundNum() < 100 && numEarlyDronesBuilt <= 2) {
+        // These initial two drones are meant to preempt a rush
+        // The isOutnumbered stuff above can react to rushes, but due to the 10 turn lag on creation to activity...
+        // I think it's good to be a little proactive
+        if (currentRound < 100 && numEarlyDronesBuilt <= 2 && teamSoup >= RobotType.DELIVERY_DRONE.cost) {
             buildDroneBasic(rc);
+            //System.out.println("I am making early game drones!");
+            numEarlyDronesBuilt++;
             return;
         }
-        else if (rc.getRoundNum() > 200) {
-            buildDroneBasic(rc);
-            return;
+
+
+        // This is the typical drone production behavior
+        // Ramps up production rate based on the amount of soup. Over 2000 soup, it makes a drone every turn.
+        // TODO: Make the round cutoffs and rates into easily-twiddled constants in Config
+        if (teamSoup >= RobotType.DELIVERY_DRONE.cost) {
+            if (teamSoup > 500 && currentRound % 32 == myID % 32) {
+                buildDroneBasic(rc);
+            }
+            else if (teamSoup > 1000 && currentRound % 16 == myID % 16) {
+                buildDroneBasic(rc);
+            }
+            else if (teamSoup > 1500 && currentRound % 8 == myID % 8) {
+                buildDroneBasic(rc);
+            }
+            else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
+                buildDroneBasic(rc);
+            }
+            else if (teamSoup >= 3000){
+                buildDroneBasic(rc);
+            }
         }
         return;
     }
@@ -86,10 +113,11 @@ public class FulfillmentCenter extends Unit {
 
     public boolean isOutnumbered(RobotController rc, RobotInfo[] nearby, Team myTeam) throws GameActionException {
         /*
-         Returns true iff (#nearby enemy landscapers&miners >= #nearby friendly drones that aren't carrying things + 2)
+         Returns true if (#nearby enemy landscapers&miners +2 >= #nearby friendly drones that aren't carrying things)
+          and there are enemies
          */
         int[] robotCounts = headcount(rc, nearby, myTeam);
-        if (robotCounts[0] + robotCounts[1] >= robotCounts[2] + 2) {
+        if (robotCounts[0] + robotCounts[1] + 2 >= robotCounts[2] && robotCounts[0] + robotCounts[1] != 0) {
             return true;
         }
         else {
