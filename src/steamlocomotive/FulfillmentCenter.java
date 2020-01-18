@@ -86,12 +86,13 @@ public class FulfillmentCenter extends Unit {
 
 
     public int[] headcount(RobotController rc, RobotInfo[] nearby, Team myTeam) throws GameActionException {
-        //Counts enemy landscapers, enemy miners, and friendly not-carrying-something drones
+        //Counts enemy landscapers, enemy miners, friendly not-carrying-something drones, and friendly landscapers
         //Outputs integers counting them in that order
 
         int numLandscapers = 0;
         int numMiners = 0;
         int numFriendlyDrones = 0;
+        int numFriendlyLandscapers = 0;
         for (RobotInfo info : nearby) {
             if (info.team != myTeam) {
                 if (info.type == RobotType.LANDSCAPER) {
@@ -105,9 +106,12 @@ public class FulfillmentCenter extends Unit {
                 if (info.type == RobotType.DELIVERY_DRONE && !info.currentlyHoldingUnit) {
                     numFriendlyDrones++;
                 }
+                else if (info.type == RobotType.LANDSCAPER) {
+                    numFriendlyLandscapers++;
+                }
             }
         }
-        int output[] = {numLandscapers, numMiners, numFriendlyDrones};
+        int output[] = {numLandscapers, numMiners, numFriendlyDrones, numFriendlyLandscapers};
         return output;
     }
 
