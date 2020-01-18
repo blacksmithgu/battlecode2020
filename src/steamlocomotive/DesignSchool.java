@@ -9,6 +9,9 @@ public class DesignSchool extends Unit {
     }
 
     int numEarlyLandscapersBuilt = 0;
+    boolean isNearHQ = false;
+    Team schoolTeam;
+    MapLocation myHQLoc;
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
@@ -30,13 +33,18 @@ public class DesignSchool extends Unit {
                 if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
                     rc.buildRobot(RobotType.LANDSCAPER, adj);
                     numEarlyLandscapersBuilt++;
+                    return;
                 }
             }
         }
 
-        //TODO: Add defensive behavior where school pumps out landscapers if HQ is getting buried
-
-
+        // If the HQ has dirt on it and friendly landscapers don't outnumber enemy landscapers, build landscaper
+        if (isNearHQ && rc.canSenseLocation(myHQLoc)) {
+            if (rc.getTeamSoup() >= RobotType.LANDSCAPER.cost && hqNeedsHelp(rc, myHQLoc, nearbyRobots, schoolTeam)) {
+                    buildLandscaperBasic(rc);
+                    return;
+            }
+        }
 
 
         // This is the typical landscaper production behavior, same as drone production
@@ -59,7 +67,7 @@ public class DesignSchool extends Unit {
                 buildLandscaperBasic(rc);
             }
         }
-
+        return;
     }
 
     public void buildLandscaperBasic(RobotController rc) throws GameActionException {
@@ -75,4 +83,64 @@ public class DesignSchool extends Unit {
         }
         return;
     }
+
+    public int[] headcount(RobotController rc, RobotInfo[] nearby, Team myTeam) throws GameActionException {
+        //Counts enemy landscapers, enemy miners, friendly not-carrying-something drones, and friendly landscapers
+        //Outputs integers counting them in that order
+
+        int numLandscapers = 0;
+        int numMiners = 0;
+        int numFriendlyDrones = 0;
+        int numFriendlyLandscapers = 0;
+        for (RobotInfo info : nearby) {
+            if (info.team != myTeam) {
+                if (info.type == RobotType.LANDSCAPER) {
+                    numLandscapers++;
+                }
+                else if (info.type == RobotType.MINER) {
+                    numMiners++;
+                }
+            }
+            else if (info.team == myTeam) {
+                if (info.type == RobotType.DELIVERY_DRONE && !info.currentlyHoldingUnit) {
+                    numFriendlyDrones++;
+                }
+                else if (info.type == RobotType.LANDSCAPER) {
+                    numFriendlyLandscapers++;
+                }
+            }
+        }
+        int output[] = {numLandscapers, numMiners, numFriendlyDrones, numFriendlyLandscapers};
+        return output;
+    }
+
+    public boolean hqNeedsHelp(RobotController rc, MapLocation hqLoc, RobotInfo[] nearbyRobots, Team myTeam) throws GameActionException {
+        if (hqLoc == null) {
+            return false;
+        }
+        else if (rc.senseRobotAtLocation(hqLoc).dirtCarrying > 0) {
+            // If the HQ has dirt on it and #enemy landscapers + 2 > #friendly landscapers, then HQ needs more landscapers to help
+            // (There also need to be a non-zero number of enemy landscapers
+            int[] headcount = headcount(rc, nearbyRobots, myTeam);
+            if (headcount[0] != 0 && headcount[0] + 2 > headcount[3]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    public void onCreation(RobotController rc) throws GameActionException {
+        /*
+        Notes its own team. Notes whether it's near our HQ.
+         */
+        schoolTeam = rc.getTeam();
+        for (RobotInfo info : rc.senseNearbyRobots()) {
+            if (info.team == schoolTeam && info.type ==RobotType.HQ) {
+                isNearHQ = true;
+                myHQLoc = info.location;
+            }
+        }
+    }
+
 }
