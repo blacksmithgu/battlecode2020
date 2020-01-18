@@ -51,6 +51,8 @@ public class Landscaper extends Unit {
     private int pathfindSteps;
     //wall location index target
     private int wallIdxTarget = 0;
+    //how many times a landscaper will tolerate moving away from the goal when going towards a wall
+    private int patience = 10;
 
     public Landscaper(int id) {
         super(id);
@@ -110,33 +112,57 @@ public class Landscaper extends Unit {
         // TODO: Do something?
     }
 
-    public Transition buildWall(RobotController rc) throws GameActionException {
+    public Direction digOppositeSmart(RobotController rc, Direction ops, boolean breakLattice) throws GameActionException {
+        //tries to dig dirt in the location opposite a given location, will take from any other location following
+        // the lattice otherwise, prioritizing spots that don't have allies in them
+        Direction lowPriority = null;
+        Direction digFrom = ops.opposite();
+        if (rc.canDigDirt(digFrom) && ((rc.getLocation().add(digFrom).x % 2 == 0 && rc.getLocation().add(digFrom).y % 2 == 0) || breakLattice) && !Arrays.asList(wallLocations.adjacentWallSpots).contains(rc.getLocation().add(digFrom))) {
+            if (rc.isLocationOccupied(rc.adjacentLocation(digFrom))) {
+                lowPriority = digFrom;
+            } else {
+                System.out.println("easy, dig opposite");
+                return digFrom;
+            }
+        }
+        for (Direction direction : Direction.allDirections()) {
+            System.out.println("considering to dig from " + direction);
+            if (rc.canDigDirt(direction) && ((rc.getLocation().add(direction).x % 2 == 0 && rc.getLocation().add(direction).y % 2 == 0) || breakLattice) && !Arrays.asList(wallLocations.adjacentWallSpots).contains(rc.getLocation().add(direction))) {
 
-        //System.out.println("building a wall ************");
-        Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
-        if (!rc.canDigDirt(digFrom)) {
-            for (Direction direction : Direction.allDirections()) {
-                if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction) && !Arrays.asList(wallLocations.adjacentWallSpots).contains(rc.getLocation().add(direction))) {
-                    digFrom = direction;
-                    break;
+                if (rc.isLocationOccupied(rc.adjacentLocation(direction))) {
+                    lowPriority = direction;
+                } else {
+                    return direction;
                 }
             }
         }
-        if (rc.getRoundNum() % 2 == 0) {
-            rc.digDirt(digFrom);
+
+        if (lowPriority == null) {
+            System.out.println("nothing to dig");
         } else {
-            if (rc.canDepositDirt(Direction.CENTER)) {
-                rc.depositDirt(Direction.CENTER);
+            System.out.println("taking from ally" + rc.adjacentLocation(lowPriority));
+        }
+        return lowPriority;
+    }
+
+    public Transition buildWall(RobotController rc) throws GameActionException {
+
+        System.out.println("building a wall ************");
+        Direction digFrom = digOppositeSmart(rc, rc.getLocation().directionTo(ourHQLoc), true);
+        if (rc.canDepositDirt(Direction.CENTER)) {
+            rc.depositDirt(Direction.CENTER);
+        } else {
+            if (digFrom != null && rc.canDigDirt(digFrom)) {
+                rc.digDirt(digFrom);
             }
         }
-
         return new Transition(LandscaperState.BUILD_WALL, true);
     }
 
     public Transition moveToWall(RobotController rc) throws GameActionException {
 
         //System.out.println("wall location size " + wallLocations.adjacentWallSpots.length);
-
+        //System.out.println("moving towards wall");
         //check if in position
         MapLocation pos = rc.getLocation();
         for (int i = 0; i < wallLocations.adjacentWallSpots.length; i++) {
@@ -146,6 +172,7 @@ public class Landscaper extends Unit {
         }
 
         MapLocation temp = wallLocations.adjacentWallSpots[wallIdxTarget];
+        System.out.println(temp);
         if (rc.canSenseLocation(temp) && rc.isLocationOccupied(temp)) {
             wallIdxTarget += 1;
             if (wallIdxTarget >= wallLocations.adjacentWallSpots.length) {
@@ -153,13 +180,42 @@ public class Landscaper extends Unit {
                 return new Transition(LandscaperState.ROAMING, false);
             }
         }
+        if (rc.getLocation().distanceSquaredTo(temp) <= 2) {
+            if (rc.canMove(rc.getLocation().directionTo(temp))) {
+                rc.move(rc.getLocation().directionTo(temp));
+                return new Transition(LandscaperState.MOVE_TO_WALL, true);
+            } else {
+                System.out.println("elevator!");
+                if (rc.canDepositDirt(Direction.CENTER)) {
+                    rc.depositDirt(Direction.CENTER);
+                    return new Transition(LandscaperState.MOVE_TO_WALL, true);
+                } else {
+                    Direction digFrom = digOppositeSmart(rc, rc.getLocation().directionTo(temp), true);
+                    if (digFrom != null && rc.canDigDirt(digFrom)) {
+                        rc.digDirt(digFrom);
+                        return new Transition(LandscaperState.MOVE_TO_WALL, true);
+                    }
+                    System.out.println("wasting turn");
+                }
+            }
+
+        }
 
         //move to position
         pathfinder = this.newPathfinder(wallLocations.adjacentWallSpots[wallIdxTarget], false);
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
-        if (move != null && move != Direction.CENTER) rc.move(move);
+        if (move != null && move != Direction.CENTER) {
+            if (rc.getLocation().distanceSquaredTo(temp) < rc.adjacentLocation(move).distanceSquaredTo(temp)) {
+                patience -= 1;
+            }
+            rc.move(move);
+            if (patience <= 0) {
+                return new Transition(LandscaperState.ROAMING, true);
+            }
+            return new Transition(LandscaperState.MOVE_TO_WALL, true);
+        }
 
-        return new Transition(LandscaperState.MOVE_TO_WALL, true);
+        return new Transition(LandscaperState.ROAMING, true);
     }
 
     public Transition buryEnemy(RobotController rc) throws GameActionException {
@@ -168,23 +224,18 @@ public class Landscaper extends Unit {
 
     public Transition unburyAlly(RobotController rc) throws GameActionException {
         RobotInfo[] info = rc.senseNearbyRobots();
-        if (info.length==0){
+        if (info.length == 0) {
             return new Transition(LandscaperState.ROAMING, false);
         }
-        for (RobotInfo rob : info){
-            if (rob.team == rc.getTeam() && rob.type == RobotType.HQ && rob.dirtCarrying>0){
-                if (rc.getLocation().distanceSquaredTo(rob.getLocation())==1){
-                    if (rc.canDepositDirt(rc.getLocation().directionTo(rob.getLocation()))){
+        for (RobotInfo rob : info) {
+            if (rob.team == rc.getTeam() && rob.type == RobotType.HQ && rob.dirtCarrying > 0) {
+                if (rc.getLocation().distanceSquaredTo(rob.getLocation()) == 1) {
+                    if (rc.canDepositDirt(rc.getLocation().directionTo(rob.getLocation()))) {
                         rc.depositDirt(rc.getLocation().directionTo(rob.getLocation()));
                     } else {
-                        if (rc.canDigDirt(rc.getLocation().directionTo(rob.getLocation()).opposite())){
-                            rc.digDirt(rc.getLocation().directionTo(rob.getLocation()).opposite());
-                        } else {
-                            for (Direction direction : Direction.allDirections()) {
-                                if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction)) {
-                                    rc.digDirt(direction);
-                                }
-                            }
+                        Direction digFrom = digOppositeSmart(rc, Direction.NORTH, false);
+                        if (digFrom != null && rc.canDigDirt(digFrom)) {
+                            rc.digDirt(digFrom);
                         }
                     }
                 } else {
@@ -243,7 +294,7 @@ public class Landscaper extends Unit {
             System.out.println("Niels my landscapers aren't getting comms");
         }
         ourHQLoc = wallLocations.hq;
-        if (comms.isWallDone(rc)){
+        if (comms.isWallDone(rc)) {
             System.out.println("WALL IS DONE");
             state = LandscaperState.ROAMING;
         }
