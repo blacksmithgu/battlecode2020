@@ -92,16 +92,42 @@ public class HQ extends Unit {
 
         }
 
-        // Don't spawn more miners if we've hit our cap.
-        if (this.numMiners >= Config.MAX_NUM_MINERS) return;
+        // Aggressively build MAX_NUM_MINERS in early game
+        if (rc.getRoundNum() < 150 ) {
+            if (this.numMiners >= Config.MAX_NUM_MINERS) return;
 
-        // Wait for cost of miner if before refinery cutoff, otherwise wait for cost of refinery + miner.
-        if (rc.getRoundNum() < Config.MIN_REFINERY_ROUND) {
-            if (rc.getTeamSoup() < RobotType.MINER.cost) return;
-        } else {
-            if (rc.getTeamSoup() < RobotType.MINER.cost + RobotType.REFINERY.cost) return;
+            // Wait for cost of miner if before refinery cutoff, otherwise wait for cost of refinery + miner.
+            if (rc.getRoundNum() < Config.MIN_REFINERY_ROUND) {
+                if (rc.getTeamSoup() < RobotType.MINER.cost) return;
+            } else {
+                if (rc.getTeamSoup() < RobotType.MINER.cost + RobotType.REFINERY.cost) return;
+            }
+
+            buildMiner(rc);
+            return;
         }
 
+        int teamSoup = rc.getTeamSoup();
+        int currentRound = rc.getRoundNum();
+        int myID = rc.getID();
+        if (teamSoup >= RobotType.MINER.cost) {
+            if (teamSoup > 1000 && currentRound % 32 == myID % 32) {
+                buildMiner(rc);
+                numMiners++;
+                return;
+            }
+            else if (teamSoup > 2000 && currentRound % 64 == myID % 64) {
+                buildMiner(rc);
+                numMiners++;
+                return;
+            }
+        }
+
+
+        return;
+    }
+
+    public void buildMiner(RobotController rc) throws GameActionException {
         // Look at all of the soup locations, and send a miner to a random soup location.
         MapLocation[] soupLocations = rc.senseNearbySoup();
 
@@ -119,9 +145,9 @@ public class HQ extends Unit {
 
         if (rc.canBuildRobot(RobotType.MINER, desired)) {
             rc.buildRobot(RobotType.MINER, desired);
-            this.numMiners += 1;
+            numMiners += 1;
+            return;
         }
-
     }
 
     public void onCreation(RobotController rc) throws GameActionException {
