@@ -37,7 +37,26 @@ public class HQ extends Unit {
                         MapLocation loc = rc.getLocation();
                         loc = new MapLocation(loc.x + xOffset, loc.y + yOffset);
                         if (rc.onTheMap(loc)) {
-                            wallSpots.add(loc);
+                            boolean ignore = false;
+
+                            //do a check to see if we're in a corner or against a wall and see if the wall is not necessary
+
+                            //check for an absolute corner of the map
+                            if (Math.abs(xOffset)+Math.abs(yOffset)==2){
+                                if (!rc.onTheMap(new MapLocation(loc.x + 2*xOffset, loc.y + 0*yOffset)) && !rc.onTheMap(new MapLocation(loc.x + 0*xOffset, loc.y + 2*yOffset))){
+                                    ignore = true;
+                                }
+                            }
+                            //check for an edge of the map that's not a corner
+                            if (Math.abs(xOffset)+Math.abs(yOffset)==1){
+                                if (!rc.onTheMap(new MapLocation(loc.x + 2*xOffset, loc.y + 2*yOffset))){
+                                    ignore = true;
+                                }
+                            }
+                            if (!ignore){
+                                wallSpots.add(loc);
+                            }
+
                         }
                     }
                 }
@@ -67,7 +86,10 @@ public class HQ extends Unit {
                     break;
                 }
             }
-            comms.wallClaimed(rc);
+            if (allDone){
+                comms.wallClaimed(rc);
+            }
+
         }
 
         // Don't spawn more miners if we've hit our cap.

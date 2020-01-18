@@ -2,6 +2,8 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
+import java.util.Arrays;
+
 public class Landscaper extends Unit {
 
     /**
@@ -114,7 +116,7 @@ public class Landscaper extends Unit {
         Direction digFrom = rc.getLocation().directionTo(ourHQLoc).opposite();
         if (!rc.canDigDirt(digFrom)) {
             for (Direction direction : Direction.allDirections()) {
-                if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction)) {
+                if (!direction.equals(Direction.CENTER) && rc.canDigDirt(direction) && !Arrays.asList(wallLocations.adjacentWallSpots).contains(rc.getLocation().add(direction))) {
                     digFrom = direction;
                     break;
                 }
