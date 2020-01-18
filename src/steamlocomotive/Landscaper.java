@@ -52,7 +52,7 @@ public class Landscaper extends Unit {
     //wall location index target
     private int wallIdxTarget = 0;
     //how many times a landscaper will tolerate moving away from the goal when going towards a wall
-    private int patience = 10;
+    private int patience = 30;
 
     public Landscaper(int id) {
         super(id);
