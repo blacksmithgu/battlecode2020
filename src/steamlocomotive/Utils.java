@@ -46,6 +46,18 @@ public class Utils {
         }
     }
 
+    /** Run the consumer function on every tile in the squared radius from the given center. */
+    public static void traverseInRange(MapLocation center, int radiusSquared, GameConsumer<MapLocation> func) throws GameActionException {
+        int visionRadius = (int) Math.ceil(Math.sqrt(radiusSquared));
+
+        for (int x = -visionRadius; x <= visionRadius; x++) {
+            for (int y = -visionRadius; y <= visionRadius; y++) {
+                MapLocation location = new MapLocation(center.x + x, center.y + y);
+                if (location.distanceSquaredTo(center) <= radiusSquared) func.accept(location);
+            }
+        }
+    }
+
     /** Find the closest unit of the given type. The location will be null if there is no robot in sensor range. */
     public static ClosestRobot closestRobot(RobotController rc, RobotType type, Team team) {
         RobotInfo best = null;
@@ -162,7 +174,7 @@ public class Utils {
         public void clearInvalid(RobotController rc, GamePredicate<MapLocation> pred) throws GameActionException {
             for (int i = 0; i < clusters.length; i++) {
                 if (clusters[i] == null) continue;
-                if (!pred.check(clusters[i])) clusters[i] = null;
+                if (pred.check(clusters[i])) clusters[i] = null;
             }
         }
     }

@@ -16,19 +16,8 @@ public class Miner extends Unit {
         ROAMING,
         /** The miner is considering opening a refinery of it's own, settling down, having a family. */
         DREAMING_ABOUT_REFINERY,
-        /** The miner is considering opening a fulfillment center, really try to find joy in life. */
-        DREAMING_ABOUT_FULFILLMENT
-    }
-
-    /** A transition from one state to another. Marks the target and whether an action has been taken. */
-    private static class Transition {
-        public MinerState target;
-        public boolean madeAction;
-
-        public Transition(MinerState target, boolean madeAction) {
-            this.target = target;
-            this.madeAction = madeAction;
-        }
+        /** The miner is considering opening a fulfillment center or design school, to really start building the community. */
+        DREAMING_ABOUT_BUILDINGS
     }
 
     // The mode that the miner is currently in.
@@ -39,8 +28,10 @@ public class Miner extends Unit {
     private int pathfindSteps;
     // Clusters seen soup locations.
     private Utils.Clusterer soups;
-    // The location of the HQ we are dumping resources at.
-    private MapLocation refinery;
+    // The location of the refinery/HQ we are dumping resources at, as well as the last seen fulfillment and design centers.
+    private MapLocation refinery, fulfillment, design;
+    // The location of the HQ. Given that we spawn here, we should always know where it is!
+    private MapLocation hq;
 
     public Miner(int id) {
         super(id);
@@ -48,37 +39,37 @@ public class Miner extends Unit {
         this.pathfindSteps = 0;
         this.refinery = null;
         this.state = MinerState.ROAMING;
-        this.soups = new Utils.Clusterer(Config.TRACKED_SOUP_COUNT, Config.REPRESENTATIVE_THRESHOLD);
+        this.soups = new Utils.Clusterer(Config.NUM_SOUP_CLUSTERS, Config.MAX_CLUSTER_DISTANCE);
     }
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
-        // Update soup knowledge by scanning surroundings.
+        // Update soup and unit knowledge by scanning surroundings.
         this.scanSurroundings(rc);
 
-        // Swap on current state.
-        boolean madeAction;
-        do {
-            Transition trans;
+        while (rc.isReady()) {
+            MinerState next;
             switch (this.state) {
-                case DROPOFF: trans = this.dropoff(rc); break;
-                case TRAVEL: trans = this.travel(rc); break;
-                case MINE: trans = this.mining(rc); break;
-                case DREAMING_ABOUT_REFINERY: trans = this.refinery(rc); break;
-                case DREAMING_ABOUT_FULFILLMENT: trans = this.fulfillment(rc); break;
+                case DROPOFF: next = this.dropoff(rc); break;
+                case TRAVEL: next = this.travel(rc); break;
+                case MINE: next = this.mining(rc); break;
+                case DREAMING_ABOUT_REFINERY: next = this.refinery(rc); break;
+                case DREAMING_ABOUT_BUILDINGS: next = this.buildings(rc); break;
                 default:
-                case ROAMING: trans = this.roaming(rc); break;
+                case ROAMING: next = this.roaming(rc); break;
             }
 
             // Reset transient miner state.
-            if (this.state != trans.target) {
+            if (this.state != next) {
                 this.pathfinder = null;
                 this.pathfindSteps = 0;
+            } else {
+                // If the state transitioned to the same state, don't execute it again - there's no new information!
+                break;
             }
 
-            this.state = trans.target;
-            madeAction = trans.madeAction;
-        } while (!madeAction);
+            this.state = next;
+        }
 
         // Useful for debugging.
         if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 255, 0, 0);
@@ -91,8 +82,17 @@ public class Miner extends Unit {
         int refineDistance = this.refinery == null ? Integer.MAX_VALUE : this.refinery.distanceSquaredTo(rc.getLocation());
         if (closeRefinery.distance < refineDistance) this.refinery = closeRefinery.robot.getLocation();
 
+        // Update closest of the other buildings: fulfillment and designs.
+        Utils.ClosestRobot closeFulfillment = Utils.closestRobot(rc, RobotType.FULFILLMENT_CENTER, rc.getTeam());
+        int fulfillDistance = this.fulfillment == null ? Integer.MAX_VALUE : this.fulfillment.distanceSquaredTo(rc.getLocation());
+        if  (closeFulfillment.distance < fulfillDistance) this.fulfillment = closeFulfillment.robot.getLocation();
+
+        Utils.ClosestRobot closeDesign = Utils.closestRobot(rc, RobotType.DESIGN_SCHOOL, rc.getTeam());
+        int designDistance = this.design == null ? Integer.MAX_VALUE : this.design.distanceSquaredTo(rc.getLocation());
+        if (closeDesign.distance < designDistance) this.design = closeDesign.robot.location;
+
         // Check and clear representatives if they are no longer present.
-        this.soups.clearInvalid(rc, loc -> rc.canSenseLocation(loc) && !rc.senseFlooding(loc) && rc.senseSoup(loc) > 0);
+        this.soups.clearInvalid(rc, loc -> rc.canSenseLocation(loc) && (rc.senseFlooding(loc) || rc.senseSoup(loc) == 0));
 
         // Soup memory; track recently seen soup clusters.
         MapLocation[] sensedSoup = rc.senseNearbySoup();
@@ -104,11 +104,12 @@ public class Miner extends Unit {
     }
 
     /** Implements roaming behavior, where the miner roams until it finds soup somewhere. */
-    public Transition roaming(RobotController rc) throws GameActionException {
-        // TODO: Roaming targets may be unreachable, so choose a new target after X steps.
+    public MinerState roaming(RobotController rc) throws GameActionException {
+        // If our inventory is full and there is a refinery that is reachable, head there.
+        if (rc.getSoupCarrying() >= Config.INVENTORY_RETURN_SIZE && this.refinery != null) return MinerState.DROPOFF;
 
         // If there is nonzero soup we are aware of, transition to traveling to it.
-        if (soups.hasCluster()) return new Transition(MinerState.TRAVEL, false);
+        if (soups.hasCluster()) return MinerState.TRAVEL;
 
         // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
@@ -124,33 +125,31 @@ public class Miner extends Unit {
         if (move != null && move != Direction.CENTER) rc.move(move);
         this.pathfindSteps++;
 
-        return new Transition(MinerState.ROAMING, true);
+        return MinerState.ROAMING;
     }
 
     /** Implements mining behavior, where a miner is actively next to some soup and is harvesting it. */
-    public Transition mining(RobotController rc) throws GameActionException {
-        // If inventory is full then head back to dropoff.
-        if (rc.getSoupCarrying() >= Config.INVENTORY_RETURN_SIZE) return new Transition(MinerState.DREAMING_ABOUT_REFINERY, false);
+    public MinerState mining(RobotController rc) throws GameActionException {
+        // If inventory is full then dropoff (potentially by building a refinery to drop off to).
+        if (rc.getSoupCarrying() >= Config.INVENTORY_RETURN_SIZE) return MinerState.DREAMING_ABOUT_REFINERY;
 
         // Try mining in every direction. If we can't, swap to traveling mode to go to some more soup.
         for (Direction dir : Direction.allDirections()) {
             if (rc.canMineSoup(dir)) {
                 rc.mineSoup(dir);
-                return new Transition(MinerState.MINE, true);
+                return MinerState.MINE;
             }
         }
 
         // Then swap to traveling to a new vein.
-        return new Transition(MinerState.TRAVEL, false);
+        return MinerState.TRAVEL;
     }
 
     /** Travel behavior, where a miner travels to a known soup location. */
-    public Transition travel(RobotController rc) throws GameActionException {
+    public MinerState travel(RobotController rc) throws GameActionException {
         // Hacky solution to some bad behavior; if we can mine soup, immediately transition to mining.
         for (Direction dir : Direction.allDirections()) {
-            if (rc.canMineSoup(dir)) {
-                return new Transition(MinerState.MINE, false);
-            }
+            if (rc.canMineSoup(dir)) return MinerState.MINE;
         }
 
         // If no pathfinder, create it to the closest soup.
@@ -159,33 +158,30 @@ public class Miner extends Unit {
 
             // If there is no soup, cry a little and roam.
             if (closest == null) {
-                return new Transition(MinerState.ROAMING, false);
+                return MinerState.ROAMING;
             } else {
                 this.pathfinder = this.newPathfinder(closest, true);
             }
         }
 
         // If pathfinder finished, transition to mining.
-        if (this.pathfinder.finished(rc.getLocation())) {
-            return new Transition(MinerState.MINE, false);
-        }
+        if (this.pathfinder.finished(rc.getLocation())) return MinerState.MINE;
 
         // Obtain a movement from the pathfinder and follow it.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
         if (move != null && move != Direction.CENTER) rc.move(move);
         this.pathfindSteps++;
 
-        return new Transition(MinerState.TRAVEL, true);
+        return MinerState.TRAVEL;
     }
 
     /** Dropoff behavior, where a miner travels to the refinery for dropoff. */
-    public Transition dropoff(RobotController rc) throws GameActionException {
-        // TODO: Handle destroyed refinery during roaming.
+    public MinerState dropoff(RobotController rc) throws GameActionException {
+        // No refinery to drop off to, roam around looking for one.
+        if (this.refinery == null) return MinerState.ROAMING;
 
         // Set up the pathfinder if it's currently null.
-        if (this.pathfinder == null) {
-            this.pathfinder = this.newPathfinder(this.refinery, true);
-        }
+        if (this.pathfinder == null) this.pathfinder = this.newPathfinder(this.refinery, true);
 
         // If the pathfinder is finished, drop off and transition.
         if (this.pathfinder.finished(rc.getLocation())) {
@@ -194,17 +190,15 @@ public class Miner extends Unit {
             if (rc.canDepositSoup(toRefinery)) {
                 rc.depositSoup(toRefinery, rc.getSoupCarrying());
 
-                // Build a fulfillment center if necessary.
-                // TODO: Change these into constants.
-                if (rc.getRoundNum() > 200 && rc.getTeamSoup() > 400) {
-                    if (this.rng.nextInt(100)<20)
-                        return new Transition(MinerState.DREAMING_ABOUT_FULFILLMENT, true);
+                // Build a fulfillment center/design school if necessary.
+                if (rc.getRoundNum() > Config.BUILD_BUILDING_MIN_ROUND && rc.getTeamSoup() > Config.BUILD_BUILDING_MIN_SOUP) {
+                    if (this.rng.nextDouble() < Config.BUILD_BUILDING_PROB) return MinerState.DREAMING_ABOUT_BUILDINGS;
                 }
 
-                return new Transition(MinerState.TRAVEL, true);
+                return MinerState.TRAVEL;
             } else {
                 // No refinery is where we thought it was anymore. Start roaming around looking for a refinery.
-                return new Transition(MinerState.ROAMING, false);
+                return MinerState.ROAMING;
             }
         }
 
@@ -213,65 +207,138 @@ public class Miner extends Unit {
         if (move != null && move != Direction.CENTER) rc.move(move);
         this.pathfindSteps++;
 
-        return new Transition(MinerState.DROPOFF, true);
+        return MinerState.DROPOFF;
     }
 
-    public Transition refinery(RobotController rc) throws GameActionException {
+    /** Try to build a refinery in a reasonable place (not adjacent to any existing building!). */
+    public MinerState refinery(RobotController rc) throws GameActionException {
         // Ensure we have enough money to build a refinery.
-        if (rc.getTeamSoup() < RobotType.REFINERY.cost) return new Transition(MinerState.DROPOFF, false);
+        if (rc.getTeamSoup() < RobotType.REFINERY.cost) return MinerState.DROPOFF;
 
         // Ensure we're placing the refinery far enough away!
         // TODO: Consider a more advanced distance metric than as-the-crow-flys.
-        if (rc.getLocation().distanceSquaredTo(refinery) < Config.REFINERY_MIN_DISTANCE) return new Transition(MinerState.DROPOFF, false);
+        if (rc.getLocation().distanceSquaredTo(refinery) < Config.REFINERY_MIN_DISTANCE) return MinerState.DROPOFF;
 
         // Alright, it's time to build.
         for (Direction adj : Direction.allDirections()) {
             if (adj == Direction.CENTER) continue;
             if (rc.canBuildRobot(RobotType.REFINERY, adj)) {
                 rc.buildRobot(RobotType.REFINERY, adj);
-                return new Transition(MinerState.DROPOFF, true);
+                return MinerState.DROPOFF;
             }
         }
 
         // :(
-        return new Transition(MinerState.DROPOFF, false);
+        return MinerState.DROPOFF;
     }
 
-    public Transition fulfillment(RobotController rc) throws GameActionException {
-        // Ensure we have enough money to build a fulfillment center.
-        if (rc.getTeamSoup() < RobotType.FULFILLMENT_CENTER.cost) return new Transition(MinerState.DROPOFF, false);
+    /** Try to build a fulfillment center or design school in a reasonable place. */
+    public MinerState buildings(RobotController rc) throws GameActionException {
+        // Ensure we have enough money to build a fulfillment center or design school.
+        if (rc.getTeamSoup() < RobotType.FULFILLMENT_CENTER.cost || rc.getTeamSoup() < RobotType.DESIGN_SCHOOL.cost) return MinerState.TRAVEL;
 
-        // Ensure we're placing the fulfillment center far enough away!
-        for (RobotInfo info : rc.senseNearbyRobots(-1, rc.getTeam())) {
-            if (info.getType() == RobotType.FULFILLMENT_CENTER && info.getTeam() == rc.getTeam()) {
-                return new Transition(MinerState.TRAVEL, false);
-            }
+        // Determine which buildings we should consider building based on how far away we are from existing buildings.
+        boolean buildFulfillment = (this.fulfillment == null || this.fulfillment.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST);
+        boolean buildDesign = (this.design == null || this.design.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST);
+
+        if (!buildDesign && !buildFulfillment) return MinerState.TRAVEL;
+
+        // Scan the nearby surroundings for a good place within a few steps of us to build our building.
+        if (this.pathfinder == null) {
+            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE);
+
+            // No good locations, give up.
+            if (best == null) return MinerState.TRAVEL;
+
+            this.pathfinder = this.newPathfinder(best, true);
         }
 
-        for (Direction adj : Direction.allDirections()) {
-            if (adj == Direction.CENTER) continue;
-            if (rc.canBuildRobot(RobotType.DESIGN_SCHOOL, adj)) {
-                if (this.rng.nextInt(4) != 1){
-                    rc.buildRobot(RobotType.DESIGN_SCHOOL, adj);
-                } else {
-                    rc.buildRobot(RobotType.FULFILLMENT_CENTER, adj);
-                }
+        // If done, attempt to build.
+        if (this.pathfinder.finished(rc.getLocation())) {
+            Direction towards = rc.getLocation().directionTo(this.pathfinder.goal());
 
-                return new Transition(MinerState.TRAVEL, true);
-            }
+            RobotType typeToBuild;
+            if (buildDesign && !buildFulfillment) typeToBuild = RobotType.DESIGN_SCHOOL;
+            else if (!buildDesign && buildFulfillment) typeToBuild = RobotType.FULFILLMENT_CENTER;
+            else typeToBuild = (this.rng.nextDouble() < Config.FULFILLMENT_CENTER_PROB) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
+
+            if (rc.canBuildRobot(typeToBuild, towards))
+                rc.buildRobot(typeToBuild, towards);
+
+            return MinerState.TRAVEL;
         }
+
+        // Quit if we've wasted too much time on this.
+        if (this.pathfindSteps >= 2 * Config.BUILD_BUILDING_ROAM_DISTANCE) return MinerState.TRAVEL;
+
+        // Otherwise, take a step with the pathfinder.
+        // Obtain a movement from the pathfinder and follow it.
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+        if (move != null && move != Direction.CENTER) rc.move(move);
+        this.pathfindSteps++;
 
         // :(
-        return new Transition(MinerState.DROPOFF, false);
+        return MinerState.DREAMING_ABOUT_BUILDINGS;
     }
 
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
         // Search for HQ/refinery for our initial dropoff. This may change in the future.
         RobotInfo refine = Utils.closestRobot(rc, robot -> robot.getType() == RobotType.REFINERY || robot.getType() == RobotType.HQ, rc.getTeam()).robot;
-        if (refine == null)
-            throw new IllegalStateException("This miner has nowhere to drop off materials!");
+        if (refine == null) throw new IllegalStateException("This miner has nowhere to drop off materials!");
+
+        // Building placement depends on knowledge of our actual HQ location.
+        RobotInfo h = Utils.closestRobot(rc, RobotType.HQ, rc.getTeam()).robot;
+        if (h == null) throw new IllegalStateException("This miner can't see the HQ!");
 
         this.refinery = refine.getLocation();
+        this.hq = h.getLocation();
+    }
+
+    /** Determines if a building location is a good one according to a few heuristics. */
+    private boolean goodBuildingLocation(RobotController rc, MapLocation loc, RobotInfo[] sensed) throws GameActionException {
+        if (!rc.canSenseLocation(loc)) return false;
+
+        // The building must be at least a minimum distance from our HQ.
+        if (loc.distanceSquaredTo(this.hq) < Config.BUILD_BUILDING_MIN_HQ_DIST) return false;
+
+        // The building must be at least a minimum distance from any other observed buildings.
+        for (RobotInfo robot : sensed) {
+            if (robot.type.canBePickedUp()) continue;
+            if (loc.isAdjacentTo(robot.location)) return false;
+        }
+
+        // We'd like the building to not block our pathfinding if possible; at least three of the four cardinal directions
+        // should not be flooded.
+        int valid = 0;
+        for (Direction dir : Direction.cardinalDirections()) {
+            MapLocation adj = loc.add(dir);
+            if (rc.canSenseLocation(adj) && !rc.senseFlooding(adj)) valid++;
+        }
+
+        if (valid < 3) return false;
+
+        return true;
+    }
+
+    /** Find a good building location within the given radius. */
+    private MapLocation findGoodBuildingLocation(RobotController rc, int radius) throws GameActionException {
+        MapLocation us = rc.getLocation();
+        MapLocation best = null;
+        int bestDistance = Integer.MAX_VALUE;
+        RobotInfo[] sensed = rc.senseNearbyRobots(radius * radius, rc.getTeam());
+
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                MapLocation loc = new MapLocation(us.x + dx, us.y + dy);
+                int dist = loc.distanceSquaredTo(rc.getLocation());
+                if (goodBuildingLocation(rc, loc, sensed) && dist < bestDistance) {
+                    bestDistance = dist;
+                    best = loc;
+                }
+            }
+        }
+
+        return best;
     }
 }

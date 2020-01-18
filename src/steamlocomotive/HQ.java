@@ -25,12 +25,14 @@ public class HQ extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
+        // Read the blockchain for any status updates (and send any queued messages).
         comms.updateForTurn(rc);
+
         // Aggressively shoot down enemy drones if they roam too closely.
         NetGun.findAndShoot(rc);
 
         //plan out where the wall should go
-        if (rc.getRoundNum() == Config.PLAN_WALL) {
+        if (rc.getRoundNum() == Config.HQ_WALL_PLANNING_ROUND) {
             for (int xOffset = -1; xOffset <= 1; xOffset++) {
                 for (int yOffset = -1; yOffset <= 1; yOffset++) {
                     if (xOffset != 0 || yOffset != 0) {
@@ -63,7 +65,6 @@ public class HQ extends Unit {
             }
 
             //send out communication message with the locations for the walls of the base
-            System.out.println(wallSpots.toString() + " " + wallSpots.size());
             MapLocation[] adj_spots = new MapLocation[wallSpots.size()];
             int idx = 0;
             for (MapLocation loc : wallSpots) {
@@ -71,11 +72,8 @@ public class HQ extends Unit {
                 idx += 1;
             }
             Bitconnect.HQSurroundings data = new Bitconnect.HQSurroundings(rc.getLocation(), adj_spots);
-            if (comms == null) {
-                System.out.println("null communications ************");
-            }
+
             comms.sendLandscaperLocations(rc, data);
-            System.out.println("HQ sent message");
         }
 
         if (turn % 41 == 0) {
@@ -86,14 +84,12 @@ public class HQ extends Unit {
                     break;
                 }
             }
-            if (allDone){
-                comms.wallClaimed(rc);
-            }
 
+            if (allDone) comms.wallClaimed(rc);
         }
 
         // Aggressively build MAX_NUM_MINERS in early game
-        if (rc.getRoundNum() < 150 ) {
+        if (rc.getRoundNum() < 150) {
             if (this.numMiners >= Config.MAX_NUM_MINERS) return;
 
             // Wait for cost of miner if before refinery cutoff, otherwise wait for cost of refinery + miner.
@@ -103,7 +99,7 @@ public class HQ extends Unit {
                 if (rc.getTeamSoup() < RobotType.MINER.cost + RobotType.REFINERY.cost) return;
             }
 
-            buildMiner(rc);
+            this.buildMiner(rc);
             return;
         }
 
@@ -122,9 +118,6 @@ public class HQ extends Unit {
                 return;
             }
         }
-
-
-        return;
     }
 
     public void buildMiner(RobotController rc) throws GameActionException {
