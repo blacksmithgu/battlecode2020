@@ -84,10 +84,17 @@ public class Config {
      */
     public static final int BUILD_BUILDING_ROAM_DISTANCE = 3;
 
+    /**
+     * The minimum distance buildings of the same type should be from each other.
+     */
     public static final int BUILD_BUILDING_MIN_DIST = 64;
 
     /**
      * The min squared distance we build buildings away from the HQ.
      */
     public static final int BUILD_BUILDING_MIN_HQ_DIST = 9;
+
+    // LANDSCAPER CONFIG
+
+    public static final int MAX_TERRAFORM_HEIGHT_DIFF = 10;
 }

@@ -1,6 +1,7 @@
 package steamlocomotive;
 
 import battlecode.common.*;
+import jdk.nashorn.internal.objects.annotations.Function;
 
 import java.util.Random;
 
@@ -17,6 +18,11 @@ public class Utils {
         boolean check(T value) throws GameActionException;
     }
 
+    @FunctionalInterface
+    public interface GameFunction<I, O> {
+        O apply(I input) throws GameActionException;
+    }
+
     /** Returns true if the given direction is cardinal. 1 bytecode. Get wrecked. */
     public static boolean isCardinal(Direction dir) {
         switch (dir) {
@@ -28,6 +34,11 @@ public class Utils {
             default:
                 return false;
         }
+    }
+
+    /** Returns true if the given direction is diagonal. */
+    public static boolean isDiagonal(Direction dir) {
+        return dir != Direction.CENTER && !isCardinal(dir);
     }
 
     /** Run the consumer function on every sensable tile. */
@@ -44,11 +55,6 @@ public class Utils {
                 }
             }
         }
-    }
-
-    /** Determine the current water level. */
-    public static double waterLevel(int round) throws GameActionException {
-        return Math.exp(0.0028 * round - 1.38 * Math.sin(0.00157 * round - 1.73) + 1.38 * Math.sin(-1.73)) - 1;
     }
 
     /** Find the closest unit of the given type. The location will be null if there is no robot in sensor range. */

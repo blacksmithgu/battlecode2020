@@ -87,7 +87,7 @@ public class BugPathfinder {
      * Find the move towards the goal state given the current location and a function for determining if a tile is walkable.
      * Returns Direction.CENTER if no further actions are necessary, or null if no actions are currently available.
      */
-    public Direction findMove(MapLocation loc, Function<Direction, Boolean> walkable) {
+    public Direction findMove(MapLocation loc, Utils.GameFunction<Direction, Boolean> walkable) throws GameActionException {
         // Already found the goal dummy.
         if (this.finished(loc)) return Direction.CENTER;
 

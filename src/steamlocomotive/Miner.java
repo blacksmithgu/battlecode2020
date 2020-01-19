@@ -214,7 +214,10 @@ public class Miner extends Unit {
         }
 
         // If we've taken too many steps to drop off, then consider building a refinery right now.
-        if (this.pathfindSteps >= Config.MAX_ROAM_DISTANCE) return MinerState.DREAMING_ABOUT_REFINERY;
+        if (this.pathfindSteps >= Config.MAX_ROAM_DISTANCE) {
+            System.out.println("huh I need a refinery...");
+            return MinerState.DREAMING_ABOUT_REFINERY;
+        }
 
         // Obtain a movement from the pathfinder and follow it.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
@@ -230,16 +233,37 @@ public class Miner extends Unit {
         if (rc.getTeamSoup() < RobotType.REFINERY.cost) return MinerState.DROPOFF;
 
         // Ensure we're placing the refinery far enough away!
-        if (rc.getLocation().distanceSquaredTo(refinery) < Config.REFINERY_MIN_DISTANCE) return MinerState.DROPOFF;
+        // If the refinery is the HQ, we ignore this check.
+        if (!this.refinery.equals(this.hq) && rc.getLocation().distanceSquaredTo(refinery) < Config.REFINERY_MIN_DISTANCE)
+            return MinerState.DROPOFF;
 
-        // Alright, it's time to build.
-        for (Direction adj : Direction.allDirections()) {
-            if (adj == Direction.CENTER) continue;
-            if (rc.canBuildRobot(RobotType.REFINERY, adj)) {
-                rc.buildRobot(RobotType.REFINERY, adj);
-                return MinerState.DROPOFF;
-            }
+        // Scan the nearby surroundings for a good place within a few steps of us to build our building.
+        if (this.pathfinder == null) {
+            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE);
+
+            // No good locations, give up.
+            if (best == null) return MinerState.TRAVEL;
+
+            this.pathfinder = this.newPathfinder(best, true);
         }
+
+        // If done, attempt to build.
+        if (this.pathfinder.finished(rc.getLocation())) {
+            Direction towards = rc.getLocation().directionTo(this.pathfinder.goal());
+            if (rc.canBuildRobot(RobotType.REFINERY, towards))
+                rc.buildRobot(RobotType.REFINERY, towards);
+
+            return MinerState.TRAVEL;
+        }
+
+        // Quit if we've wasted too much time on this.
+        if (this.pathfindSteps >= 2 * Config.BUILD_BUILDING_ROAM_DISTANCE) return MinerState.TRAVEL;
+
+        // Otherwise, take a step with the pathfinder.
+        // Obtain a movement from the pathfinder and follow it.
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+        if (move != null && move != Direction.CENTER) rc.move(move);
+        this.pathfindSteps++;
 
         // :(
         return MinerState.DROPOFF;

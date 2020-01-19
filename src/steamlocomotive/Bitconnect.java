@@ -221,7 +221,7 @@ public class Bitconnect {
     /**
      *  Says all the wall spots have been claimed by landscapers
      */
-    public void wallClaimed(RobotController rc){
+    public void wallClaimed(RobotController rc) {
         int[] message = new int[6];
         message[0] = MessageType.WALL_DONE.getId();
         Block block = Block.createBlock(message);
@@ -231,7 +231,7 @@ public class Bitconnect {
     /**
      * returns true if the "wallClaimed" message has been sent in the last 50 turns
      */
-    public boolean isWallDone(RobotController rc){
+    public boolean isWallDone(RobotController rc) {
         return isWallDone;
     }
 
