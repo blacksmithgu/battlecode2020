@@ -253,11 +253,11 @@ public class Miner extends Unit {
             if (rc.canBuildRobot(RobotType.REFINERY, towards))
                 rc.buildRobot(RobotType.REFINERY, towards);
 
-            return MinerState.TRAVEL;
+            return MinerState.DROPOFF;
         }
 
         // Quit if we've wasted too much time on this.
-        if (this.pathfindSteps >= 2 * Config.BUILD_BUILDING_ROAM_DISTANCE) return MinerState.TRAVEL;
+        if (this.pathfindSteps >= 2 * Config.BUILD_BUILDING_ROAM_DISTANCE) return MinerState.DROPOFF;
 
         // Otherwise, take a step with the pathfinder.
         // Obtain a movement from the pathfinder and follow it.
