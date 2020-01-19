@@ -98,15 +98,17 @@ public class Miner extends Unit {
         MapLocation[] sensedSoup = rc.senseNearbySoup();
         for (int i = 0; i < sensedSoup.length; i++) {
             MapLocation soupLoc = sensedSoup[i];
-            if (rc.canSenseLocation(soupLoc) && rc.senseFlooding(soupLoc)) {
-                boolean hasSolidAdj = false;
-                for (Direction dir : Direction.allDirections()) {
-                    MapLocation adj = soupLoc.add(dir);
-                    if (dir == Direction.CENTER) continue;
-                    if (rc.canSenseLocation(adj) && !rc.senseFlooding(soupLoc.add(dir))) hasSolidAdj = true;
-                }
+            if (rc.canSenseLocation(soupLoc)) {
+                if (rc.senseFlooding(soupLoc)) {
+                    boolean hasSolidAdj = false;
+                    for (Direction dir : Direction.allDirections()) {
+                        MapLocation adj = soupLoc.add(dir);
+                        if (dir == Direction.CENTER) continue;
+                        if (rc.canSenseLocation(adj) && !rc.senseFlooding(soupLoc.add(dir))) hasSolidAdj = true;
+                    }
 
-                if (!hasSolidAdj) continue;
+                    if (!hasSolidAdj) continue;
+                }
             }
             this.soups.update(rc, soupLoc, this.rng);
         }
@@ -201,7 +203,7 @@ public class Miner extends Unit {
 
                 // Build a fulfillment center/design school if necessary.
                 if (rc.getRoundNum() > Config.BUILD_BUILDING_MIN_ROUND && rc.getTeamSoup() > Config.BUILD_BUILDING_MIN_SOUP) {
-                    if (this.rng.nextDouble() < Config.BUILD_BUILDING_PROB) return MinerState.DREAMING_ABOUT_BUILDINGS;
+                    if (this.hq.distanceSquaredTo(rc.getLocation()) < rc.getCurrentSensorRadiusSquared() || this.rng.nextDouble() < Config.BUILD_BUILDING_PROB) return MinerState.DREAMING_ABOUT_BUILDINGS;
                 }
 
                 return MinerState.TRAVEL;
@@ -210,6 +212,9 @@ public class Miner extends Unit {
                 return MinerState.ROAMING;
             }
         }
+
+        // If we've taken too many steps to drop off, then consider building a refinery right now.
+        if (this.pathfindSteps >= Config.MAX_ROAM_DISTANCE) return MinerState.DREAMING_ABOUT_REFINERY;
 
         // Obtain a movement from the pathfinder and follow it.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
@@ -225,7 +230,6 @@ public class Miner extends Unit {
         if (rc.getTeamSoup() < RobotType.REFINERY.cost) return MinerState.DROPOFF;
 
         // Ensure we're placing the refinery far enough away!
-        // TODO: Consider a more advanced distance metric than as-the-crow-flys.
         if (rc.getLocation().distanceSquaredTo(refinery) < Config.REFINERY_MIN_DISTANCE) return MinerState.DROPOFF;
 
         // Alright, it's time to build.

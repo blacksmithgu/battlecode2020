@@ -168,13 +168,13 @@ public class FulfillmentCenter extends Unit {
 
         //Second, build drone directly towards that enemy or one angle off
         if (rc.canBuildRobot(RobotType.DELIVERY_DRONE, bestDirection)) {
-            rc.move(bestDirection);
+            rc.buildRobot(RobotType.DELIVERY_DRONE, bestDirection);
             return;
         } else if (rc.canBuildRobot(RobotType.DELIVERY_DRONE, bestDirection.rotateLeft())) {
-            rc.move(bestDirection.rotateLeft());
+            rc.buildRobot(RobotType.DELIVERY_DRONE, bestDirection.rotateLeft());
             return;
         } else if (rc.canBuildRobot(RobotType.DELIVERY_DRONE, bestDirection.rotateRight())) {
-            rc.move(bestDirection.rotateRight());
+            rc.buildRobot(RobotType.DELIVERY_DRONE, bestDirection.rotateRight());
             return;
         } else {
             //If those directions don't work, build drone wherever possible

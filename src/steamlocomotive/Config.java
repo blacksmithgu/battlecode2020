@@ -67,12 +67,12 @@ public class Config {
     /**
      * Minimum round before a miner decides to build a building.
      */
-    public static final int BUILD_BUILDING_MIN_ROUND = 40;
+    public static final int BUILD_BUILDING_MIN_ROUND = 60;
 
     /**
      * Minimum amount of soup we need to have on hand before considering building a building.
      */
-    public static final int BUILD_BUILDING_MIN_SOUP = 400;
+    public static final int BUILD_BUILDING_MIN_SOUP = RobotType.DESIGN_SCHOOL.cost;
 
     /**
      * Probability that a miner decides to build a building.

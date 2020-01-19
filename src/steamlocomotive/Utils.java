@@ -46,16 +46,9 @@ public class Utils {
         }
     }
 
-    /** Run the consumer function on every tile in the squared radius from the given center. */
-    public static void traverseInRange(MapLocation center, int radiusSquared, GameConsumer<MapLocation> func) throws GameActionException {
-        int visionRadius = (int) Math.ceil(Math.sqrt(radiusSquared));
-
-        for (int x = -visionRadius; x <= visionRadius; x++) {
-            for (int y = -visionRadius; y <= visionRadius; y++) {
-                MapLocation location = new MapLocation(center.x + x, center.y + y);
-                if (location.distanceSquaredTo(center) <= radiusSquared) func.accept(location);
-            }
-        }
+    /** Determine the current water level. */
+    public static double waterLevel(int round) throws GameActionException {
+        return Math.exp(0.0028 * round - 1.38 * Math.sin(0.00157 * round - 1.73) + 1.38 * Math.sin(-1.73)) - 1;
     }
 
     /** Find the closest unit of the given type. The location will be null if there is no robot in sensor range. */
