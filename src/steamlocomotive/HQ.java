@@ -89,7 +89,7 @@ public class HQ extends Unit {
         }
 
         // Aggressively build MAX_NUM_MINERS in early game
-        if (rc.getRoundNum() < 150) {
+        if (rc.getRoundNum() < 300) {
             if (this.numMiners >= Config.MAX_NUM_MINERS) return;
 
             // Wait for cost of miner if before refinery cutoff, otherwise wait for cost of refinery + miner.
