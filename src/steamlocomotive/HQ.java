@@ -19,6 +19,9 @@ public class HQ extends Unit {
     // comms
     private Bitconnect comms;
 
+    //enemy HQ location
+    private MapLocation enemyHq;
+
     public HQ(int id) {
         super(id);
     }
@@ -27,6 +30,14 @@ public class HQ extends Unit {
     public void run(RobotController rc, int turn) throws GameActionException {
         // Read the blockchain for any status updates (and send any queued messages).
         comms.updateForTurn(rc);
+
+        //
+        if (enemyHq==null){
+            enemyHq = comms.getEnemyBaseLocation();
+            if (enemyHq!=null){
+                System.out.println("discovered enemy HQ");
+            }
+        }
 
         // Aggressively shoot down enemy drones if they roam too closely.
         NetGun.findAndShoot(rc);
@@ -76,7 +87,7 @@ public class HQ extends Unit {
             comms.sendLandscaperLocations(rc, data);
         }
 
-        if (turn % 41 == 0) {
+        if (turn % 40 == 0) {
             boolean allDone = true;
             for (MapLocation loc : wallSpots) {
                 if (!rc.isLocationOccupied(loc)) {
@@ -86,6 +97,9 @@ public class HQ extends Unit {
             }
 
             if (allDone) comms.wallClaimed(rc);
+            if (this.enemyHq!=null){
+                comms.setEnemyBaseLocation(this.enemyHq);
+            }
         }
 
         // Aggressively build MAX_NUM_MINERS in early game

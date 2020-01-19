@@ -32,6 +32,16 @@ public class Miner extends Unit {
     private MapLocation refinery, fulfillment, design;
     // The location of the HQ. Given that we spawn here, we should always know where it is!
     private MapLocation hq;
+    // Enemy HQ location
+    private MapLocation enemyHq;
+    // Communication Object
+    private Bitconnect comms;
+    // Boolean to determine if we've found the enemy HQ because the HQ location is a temp variable in the mean time
+    private boolean foundHQ;
+    // Possible locations of the enemy HQ from symmetry
+    private MapLocation[] symmetryHq;
+    // Index of which symmetric HQ location we are currently using
+    private int enemyHqSymmetryIdx;
 
     public Miner(int id) {
         super(id);
@@ -46,6 +56,15 @@ public class Miner extends Unit {
     public void run(RobotController rc, int turn) throws GameActionException {
         // Update soup and unit knowledge by scanning surroundings.
         this.scanSurroundings(rc);
+
+        comms.updateForTurn(rc);
+
+        if (foundHQ == false){
+            if (comms.getEnemyBaseLocation()!=null){
+                this.enemyHq = comms.getEnemyBaseLocation();
+                foundHQ = true;
+            }
+        }
 
         int numTransitions = 0;
         while (rc.isReady()) {
@@ -98,6 +117,21 @@ public class Miner extends Unit {
         Utils.ClosestRobot closeDesign = Utils.closestRobot(rc, RobotType.DESIGN_SCHOOL, rc.getTeam());
         int designDistance = this.design == null ? Integer.MAX_VALUE : this.design.distanceSquaredTo(rc.getLocation());
         if (closeDesign.distance < designDistance) this.design = closeDesign.robot.location;
+
+        // Update the location of the enemy HQ if needed.
+        Utils.ClosestRobot enemyHqLoc = Utils.closestRobot(rc, RobotType.HQ, rc.getTeam().opponent());
+        if (enemyHqLoc.robot != null && foundHQ == false) {
+            this.enemyHq = enemyHqLoc.robot.getLocation();
+            comms.setEnemyBaseLocation(this.enemyHq);
+            foundHQ = true;
+        } else if (enemyHqLoc.robot == null && foundHQ == false && rc.canSenseLocation(this.enemyHq)){
+            enemyHqSymmetryIdx+=1;
+            enemyHq = symmetryHq[enemyHqSymmetryIdx];
+            if (enemyHqSymmetryIdx == 2) {
+                comms.setEnemyBaseLocation(this.enemyHq);
+                foundHQ = true;
+            }
+        }
 
         // Check and clear representatives if they are no longer present.
         this.soups.clearInvalid(rc, loc -> rc.canSenseLocation(loc) && (rc.senseFlooding(loc) || rc.senseSoup(loc) == 0));
@@ -332,6 +366,8 @@ public class Miner extends Unit {
 
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
+        comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
+
         // Search for HQ/refinery for our initial dropoff. This may change in the future.
         RobotInfo refine = Utils.closestRobot(rc, robot -> robot.getType() == RobotType.REFINERY || robot.getType() == RobotType.HQ, rc.getTeam()).robot;
         if (refine == null) throw new IllegalStateException("This miner has nowhere to drop off materials!");
@@ -342,6 +378,17 @@ public class Miner extends Unit {
 
         this.refinery = refine.getLocation();
         this.hq = h.getLocation();
+
+        this.enemyHq = comms.getEnemyBaseLocation();
+        this.symmetryHq = new MapLocation[3];
+        this.symmetryHq[0] = new MapLocation(rc.getMapWidth()- hq.x-1,rc.getMapHeight()- hq.y-1);
+        this.symmetryHq[1] = new MapLocation(hq.x,rc.getMapHeight()- hq.y-1);
+        this.symmetryHq[2] = new MapLocation(rc.getMapWidth()- hq.x-1,hq.y);
+        if (this.enemyHq!=null){
+            foundHQ = true;
+        } else {
+            this.enemyHq = this.symmetryHq[0];
+        }
     }
 
     /** Determines if a building location is a good one according to a few heuristics. */
