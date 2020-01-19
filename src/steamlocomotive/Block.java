@@ -18,8 +18,8 @@ public class Block {
             return null;
         }
 
-        int checksum = getChecksum(block);
-        int[] content = getContent(block);
+        int checksum = extractChecksum(block);
+        int[] content = extractContent(block);
 
         if (!correctChecksum(content, checksum)) {
             return null;
@@ -27,7 +27,7 @@ public class Block {
         return new Block(content);
     }
 
-    private static int[] getContent(int[] block) {
+    private static int[] extractContent(int[] block) {
         int[] content = new int[6];
 
         for (int index = 0; index < content.length; index++) {
@@ -37,21 +37,28 @@ public class Block {
     }
 
     /**
-     * Gets the checksum of a 6 int message
+     * Extract the checksum from a 7 int message
      */
-    private static int getChecksum(int[] content) {
-        return 0;
+    private static int extractChecksum(int[] content) {
+        return content[6];
     }
 
     /**
      * Verify that a checksum is valid for a message of 6 ints
      */
     private static boolean correctChecksum(int[] message, int checksum) {
-        return true;
+        return checksum == 0;
     }
 
     /**
-     * Creates a block from a message of 6 ints or returns null if input is wrong size
+     * Compute a checksum from a 6 int message
+     */
+    private static int computeChecksum(int[] message) {
+        return 0;
+    }
+
+    /**
+     * Creates a block from a message of 6 ints or returns null if input is the wrong size
      */
     public static Block createBlock(int[] message) {
         if(message.length != 6) {
@@ -62,14 +69,23 @@ public class Block {
     }
 
     /**
-     * Returns the 6 int message contained in the block
+     * Returns the 7 int message we will send to the blockchain including the checksum
      */
-    public int[] getMessage() {
+    public int[] getBlockMessage() {
         int[] message = new int[7];
         for (int index = 0; index < 6; index++) {
             message[index] = content[index];
         }
-        message[6] = getChecksum(content);
+        message[6] = computeChecksum(content);
         return message;
     }
+
+    /**
+     * Returns the content of a message
+     */
+    public int[] getMessage() {
+        return content;
+    }
+
+
 }
