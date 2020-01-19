@@ -67,7 +67,7 @@ public class Config {
     /**
      * Minimum round before a miner decides to build a building.
      */
-    public static final int BUILD_BUILDING_MIN_ROUND = 50;
+    public static final int BUILD_BUILDING_MIN_ROUND = 40;
 
     /**
      * Minimum amount of soup we need to have on hand before considering building a building.
