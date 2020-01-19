@@ -111,8 +111,7 @@ public class HQ extends Unit {
                 buildMiner(rc);
                 numMiners++;
                 return;
-            }
-            else if (teamSoup > 2000 && currentRound % 64 == myID % 64) {
+            } else if (teamSoup > 2000 && currentRound % 64 == myID % 64) {
                 buildMiner(rc);
                 numMiners++;
                 return;
@@ -144,8 +143,6 @@ public class HQ extends Unit {
     }
 
     public void onCreation(RobotController rc) throws GameActionException {
-        System.out.println("setting up coms");
         comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
-        System.out.println("done setting up coms");
     }
 }

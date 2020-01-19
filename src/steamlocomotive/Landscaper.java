@@ -311,6 +311,7 @@ public class Landscaper extends Unit {
             if (dir == Direction.CENTER) continue;
 
             MapLocation loc = rc.getLocation().add(dir);
+            if (!rc.canSenseLocation(loc)) continue;
             if (this.isWallTile(loc)) continue;
 
             if (!onLattice && onLattice(loc)) continue;
@@ -372,6 +373,7 @@ public class Landscaper extends Unit {
 
         int targetHeight = rc.senseElevation(target);
         if (targetHeight >= height) return rc.canMove(dir);
+        if (targetHeight <= -100) return false;
         return true;
     }
 }

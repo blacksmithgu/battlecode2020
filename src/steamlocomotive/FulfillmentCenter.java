@@ -31,7 +31,6 @@ public class FulfillmentCenter extends Unit {
         if(isNearHQ) {
             if (isOutnumbered(rc, nearbyRobots, centerTeam) && teamSoup >= RobotType.DELIVERY_DRONE.cost) {
                 buildTowardsEnemy(rc, nearbyRobots);
-                //System.out.println("I am defending the base!");
                 return;
             }
         }
@@ -41,11 +40,9 @@ public class FulfillmentCenter extends Unit {
         // I think it's good to be a little proactive
         if (currentRound < 100 && numEarlyDronesBuilt <= 2 && teamSoup >= RobotType.DELIVERY_DRONE.cost) {
             buildDroneBasic(rc);
-            //System.out.println("I am making early game drones!");
             numEarlyDronesBuilt++;
             return;
         }
-
 
         // This is the typical drone production behavior
         // Ramps up production rate based on the amount of soup. Over 2000 soup, it makes a drone every turn.

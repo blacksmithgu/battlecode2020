@@ -47,6 +47,7 @@ public class Miner extends Unit {
         // Update soup and unit knowledge by scanning surroundings.
         this.scanSurroundings(rc);
 
+        int numTransitions = 0;
         while (rc.isReady()) {
             MinerState next;
             switch (this.state) {
@@ -63,12 +64,19 @@ public class Miner extends Unit {
             if (this.state != next) {
                 this.pathfinder = null;
                 this.pathfindSteps = 0;
+                numTransitions++;
             } else {
                 // If the state transitioned to the same state, don't execute it again - there's no new information!
                 break;
             }
 
+            if (numTransitions >= 100) break;
+
             this.state = next;
+        }
+
+        if (numTransitions >= 100) {
+            System.out.println("Went through more than 100 transitions in one state machine execution...");
         }
 
         // Useful for debugging.
@@ -120,7 +128,7 @@ public class Miner extends Unit {
         if (rc.getSoupCarrying() >= Config.INVENTORY_RETURN_SIZE && this.refinery != null) return MinerState.DROPOFF;
 
         // If there is nonzero soup we are aware of, transition to traveling to it.
-        if (soups.hasCluster()) return MinerState.TRAVEL;
+        if (rc.getSoupCarrying() < Config.INVENTORY_RETURN_SIZE && soups.hasCluster()) return MinerState.TRAVEL;
 
         // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
@@ -191,6 +199,12 @@ public class Miner extends Unit {
         // No refinery to drop off to, roam around looking for one.
         if (this.refinery == null) return MinerState.ROAMING;
 
+        // If construction has started on the wall, drop efforts to drop at the HQ.
+        if (this.refinery.equals(this.hq) && rc.canSenseLocation(this.hq) && wallStarted(rc, this.hq)) {
+            this.refinery = null;
+            return MinerState.DREAMING_ABOUT_REFINERY;
+        }
+
         // Set up the pathfinder if it's currently null.
         if (this.pathfinder == null) this.pathfinder = this.newPathfinder(this.refinery, true);
 
@@ -214,10 +228,7 @@ public class Miner extends Unit {
         }
 
         // If we've taken too many steps to drop off, then consider building a refinery right now.
-        if (this.pathfindSteps >= Config.MAX_ROAM_DISTANCE) {
-            System.out.println("huh I need a refinery...");
-            return MinerState.DREAMING_ABOUT_REFINERY;
-        }
+        if (this.pathfindSteps >= Config.MAX_ROAM_DISTANCE) return MinerState.DREAMING_ABOUT_REFINERY;
 
         // Obtain a movement from the pathfinder and follow it.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
@@ -234,7 +245,7 @@ public class Miner extends Unit {
 
         // Ensure we're placing the refinery far enough away!
         // If the refinery is the HQ, we ignore this check.
-        if (!this.refinery.equals(this.hq) && rc.getLocation().distanceSquaredTo(refinery) < Config.REFINERY_MIN_DISTANCE)
+        if (this.refinery != null && !this.hq.equals(this.refinery) && rc.getLocation().distanceSquaredTo(this.refinery) < Config.REFINERY_MIN_DISTANCE)
             return MinerState.DROPOFF;
 
         // Scan the nearby surroundings for a good place within a few steps of us to build our building.
@@ -250,8 +261,9 @@ public class Miner extends Unit {
         // If done, attempt to build.
         if (this.pathfinder.finished(rc.getLocation())) {
             Direction towards = rc.getLocation().directionTo(this.pathfinder.goal());
-            if (rc.canBuildRobot(RobotType.REFINERY, towards))
+            if (rc.canBuildRobot(RobotType.REFINERY, towards)) {
                 rc.buildRobot(RobotType.REFINERY, towards);
+            }
 
             return MinerState.DROPOFF;
         }
@@ -341,7 +353,10 @@ public class Miner extends Unit {
 
         // The building must be at least a minimum distance from any other observed buildings.
         for (RobotInfo robot : sensed) {
-            if (robot.type.canBePickedUp()) continue;
+            if (robot.type.canBePickedUp()) {
+                if (robot.location.equals(loc)) return false;
+                continue;
+            }
             if (loc.isAdjacentTo(robot.location)) return false;
         }
 
@@ -367,6 +382,8 @@ public class Miner extends Unit {
 
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
+                if (dx == 0 && dy == 0) continue;
+
                 MapLocation loc = new MapLocation(us.x + dx, us.y + dy);
                 int dist = loc.distanceSquaredTo(rc.getLocation());
                 if (goodBuildingLocation(rc, loc, sensed) && dist < bestDistance) {
@@ -377,5 +394,20 @@ public class Miner extends Unit {
         }
 
         return best;
+    }
+
+    /** If true, it looks like the wall has been started. */
+    private boolean wallStarted(RobotController rc, MapLocation hq) throws GameActionException {
+        int numDiggers = 0;
+        for (Direction d : Direction.allDirections()) {
+            if (d == Direction.CENTER) continue;
+
+            MapLocation loc = hq.add(d);
+            if (!rc.canSenseLocation(loc)) continue;
+            RobotInfo robot = rc.senseRobotAtLocation(loc);
+            if (robot != null && robot.type == RobotType.LANDSCAPER) numDiggers++;
+        }
+
+        return numDiggers >= 4;
     }
 }

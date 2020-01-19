@@ -23,7 +23,6 @@ public class DesignSchool extends Unit {
         int myID = rc.getID();
         int currentRound = rc.getRoundNum();
 
-
         // Design school builds landscapers early, but not a lot
         // Similarly to drones, this should be insurance against rush.
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
@@ -40,7 +39,7 @@ public class DesignSchool extends Unit {
 
         // The design school near the HQ builds 8 landscapers quickly, so that the wall gets up as fast as possible
         // Only does this building every other turn so that the first design school can get out its early drones
-        if (isNearHQ && numLandscapersBuilt < 8 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost && currentRound % 2 == myID % 2) {
+        if (isNearHQ && numLandscapersBuilt < 8 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost + RobotType.REFINERY.cost && currentRound % 2 == myID % 2) {
             buildLandscaperBasic(rc);
             numLandscapersBuilt++;
         }
@@ -61,17 +60,13 @@ public class DesignSchool extends Unit {
         if (teamSoup >= RobotType.LANDSCAPER.cost) {
             if (teamSoup > 500 && currentRound % 32 == myID % 32) {
                 buildLandscaperBasic(rc);
-            }
-            else if (teamSoup > 1000 && currentRound % 16 == myID % 16) {
+            } else if (teamSoup > 1000 && currentRound % 16 == myID % 16) {
                 buildLandscaperBasic(rc);
-            }
-            else if (teamSoup > 1500 && currentRound % 8 == myID % 8) {
+            } else if (teamSoup > 1500 && currentRound % 8 == myID % 8) {
                 buildLandscaperBasic(rc);
-            }
-            else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
+            } else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
                 buildLandscaperBasic(rc);
-            }
-            else if (teamSoup >= 3000){
+            } else if (teamSoup >= 3000) {
                 buildLandscaperBasic(rc);
             }
         }
@@ -137,18 +132,11 @@ public class DesignSchool extends Unit {
         return false;
     }
 
-
     public void onCreation(RobotController rc) throws GameActionException {
-        /*
-        Notes its own team. Notes whether it's near our HQ.
-         */
-        schoolTeam = rc.getTeam();
-        for (RobotInfo info : rc.senseNearbyRobots()) {
-            if (info.team == schoolTeam && info.type ==RobotType.HQ) {
-                isNearHQ = true;
-                myHQLoc = info.location;
-            }
+        Utils.ClosestRobot heq = Utils.closestRobot(rc, RobotType.HQ, rc.getTeam());
+        if (heq.robot != null) {
+            isNearHQ = true;
+            myHQLoc = heq.robot.location;
         }
     }
-
 }
