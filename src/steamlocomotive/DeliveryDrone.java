@@ -839,8 +839,9 @@ public strictfp class DeliveryDrone extends Unit {
         if (!respectNetguns) return true;
 
         // We respect netguns and can otherwise move; go ahead and ensure we are not in range of any netguns.
+        MapLocation target = rc.getLocation().add(dir);
         for (RobotInfo info : enemies) {
-            if (info.location.distanceSquaredTo(rc.getLocation()) <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED && (info.type == RobotType.NET_GUN || info.type == RobotType.HQ))
+            if (info.location.distanceSquaredTo(target) <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED && (info.type == RobotType.NET_GUN || info.type == RobotType.HQ))
                 return false;
         }
 
