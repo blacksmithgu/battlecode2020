@@ -485,19 +485,6 @@ public class Landscaper extends Unit {
     }
 
     /**
-     * Returns true if this tile is along the line from our HQ to the enemy HQ.
-     */
-    private boolean isImportantTile(RobotController rc, MapLocation loc, int dist) throws GameActionException {
-        if (loc.x % 2 == 0 && loc.y % 2 == 0) return false;
-        if (rc.getLocation().distanceSquaredTo(hq) < 20) return false;
-
-        int x0 = loc.x, y0 = loc.y, x1 = hq.x, x2 = enemyHq.x, y1 = hq.y, y2 = enemyHq.y;
-        double top = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
-        double bottom = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
-        return top / bottom < dist;
-    }
-
-    /**
      * Returns true if the location is one of the HQ wall locations.
      */
     private boolean isWallTile(MapLocation loc) {

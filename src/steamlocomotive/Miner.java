@@ -67,6 +67,12 @@ public class Miner extends Unit {
         // Emergency self-defense checks (like netguns).
         this.checkForSelfDefense(rc);
 
+        // Sorry miner, you were in the way :(
+        if (wallStarted(rc, rc.getLocation()) && comms.ourHQSurroundings != null && comms.ourHQSurroundings.isWall(rc.getLocation()) && rc.senseElevation(rc.getLocation()) >= 30) {
+            rc.disintegrate();
+            return;
+        }
+
         // TODO: Cleanup HQ finding logic.
         if (foundHQ == false) {
             if (comms.getEnemyBaseLocation()!=null){
