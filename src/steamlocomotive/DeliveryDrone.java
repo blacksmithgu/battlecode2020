@@ -2,8 +2,6 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.awt.*;
-
 public strictfp class DeliveryDrone extends Unit {
     //TODO implement interactions with cows (drowning them, dropping them on enemies, or both)
     //TODO make drones stay out of range of enemy net shooters and HQ
@@ -32,7 +30,9 @@ public strictfp class DeliveryDrone extends Unit {
         // Drone looks for a friendly landscaper to put it on top of the wall to build
         FINDING_LANDSCAPER,
         // Drone puts the friendly landscaper on top of the wall
-        FERRYING_LANDSCAPER
+        FERRYING_LANDSCAPER,
+        // The drone ferrying was interrupted due to new information, and it is dropping off it's carried unit.
+        DROPOFF_FRIENDLY
     }
 
     private static class Transition {
@@ -49,6 +49,8 @@ public strictfp class DeliveryDrone extends Unit {
     private DeliveryDrone.DroneState state;
     // Pathfinder for going to a location;
     private BugPathfinder pathfinder;
+    // The number of steps the pathfinder has taken.
+    private int pathfindSteps;
     // The closest water we've seen for dunking.
     private MapLocation closestWater;
     // The closest enemy landscaper or miner that we've seen, for dunking
@@ -84,10 +86,10 @@ public strictfp class DeliveryDrone extends Unit {
     // Index of which symmetric HQ location we are currently using
     private int enemyHqSymmetryIdx;
 
-
     public DeliveryDrone(int id) {
         super(id);
         this.pathfinder = null;
+        this.pathfindSteps = 0;
         this.closestWater = null;
         this.closestEnemyLandUnit = null;
         this.closestCow = null;
@@ -103,15 +105,15 @@ public strictfp class DeliveryDrone extends Unit {
     }
 
     public void run(RobotController rc, int turn) throws GameActionException {
+        // Update our comms
+        comms.updateForTurn(rc);
+
         // Update water knowledge by scanning surroundings;
         if (this.state == DroneState.FINDING_LANDSCAPER || this.state == DroneState.FERRYING_LANDSCAPER) {
             this.scanSurroundingsDumb(rc);
         } else {
             this.scanSurroundings(rc);
         }
-
-        // Update our comms
-        comms.updateForTurn(rc);
 
         if (foundHQ == false) {
             if (comms.getEnemyBaseLocation() != null) {
@@ -125,40 +127,19 @@ public strictfp class DeliveryDrone extends Unit {
         do {
             Transition trans;
             switch (this.state) {
-                case CHASING:
-                    trans = this.chasing(rc);
-                    break;
-                case DUNKING:
-                    trans = this.dunking(rc);
-                    break;
-                case FINDING_MINER:
-                    trans = this.findingMiner(rc);
-                    break;
-                case FERRYING_MINER:
-                    trans = this.ferryingMiner(rc);
-                    break;
-                case FINDING_LANDSCAPER:
-                    trans = this.findingLandscaper(rc);
-                    break;
-                case FERRYING_LANDSCAPER:
-                    trans = this.ferryingLandscaper(rc);
-                    break;
-                case FINDING_ENEMY:
-                    trans = this.findingEnemy(rc);
-                    break;
-                case FINDING_COW:
-                    trans = this.findingCow(rc);
-                    break;
-                case CHASING_COW:
-                    trans = this.chasingCow(rc);
-                    break;
-                case GOING_TO_ENEMY_HQ:
-                    trans = this.goingToEnemyHQ(rc);
-                    break;
+                case CHASING: trans = this.chasing(rc); break;
+                case DUNKING: trans = this.dunking(rc); break;
+                case FINDING_MINER: trans = this.findingMiner(rc); break;
+                case FERRYING_MINER: trans = this.ferryingMiner(rc); break;
+                case FINDING_LANDSCAPER: trans = this.findingLandscaper(rc); break;
+                case FERRYING_LANDSCAPER: trans = this.ferryingLandscaper(rc); break;
+                case DROPOFF_FRIENDLY: trans = this.dropoffFriendly(rc); break;
+                case FINDING_ENEMY: trans = this.findingEnemy(rc); break;
+                case FINDING_COW: trans = this.findingCow(rc); break;
+                case CHASING_COW: trans = this.chasingCow(rc); break;
+                case GOING_TO_ENEMY_HQ: trans = this.goingToEnemyHQ(rc); break;
                 default:
-                case ROAMING:
-                    trans = this.roaming(rc);
-                    break;
+                case ROAMING: trans = this.roaming(rc); break;
             }
 
             // Reset transient state.
@@ -211,7 +192,7 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        //Reset closestCow to null if outdated
+        // Reset closestCow to null if outdated
         if (closestCow != null && rc.canSenseLocation(closestCow)) {
             RobotInfo shouldBeCow = rc.senseRobotAtLocation(closestCow);
             if (shouldBeCow == null) {
@@ -221,14 +202,13 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        //Reset closest soup to null if there's no longer soup
+        // Reset closest soup to null if there's no longer soup or it's now flooded.
         if (closestHardSoup != null && rc.canSenseLocation(closestHardSoup)) {
-            if (rc.senseSoup(closestHardSoup) == 0) {
-                closestHardSoup = null;
-            }
+            if (rc.senseSoup(closestHardSoup) == 0 || rc.senseFlooding(closestHardSoup)) closestHardSoup = null;
         }
 
-        if (foundHQ == false && rc.canSenseLocation(this.enemyHQLoc) && rc.senseRobotAtLocation(this.enemyHQLoc) != null && rc.senseRobotAtLocation(this.enemyHQLoc).type != RobotType.HQ) {
+        // ???
+        if (!foundHQ && rc.canSenseLocation(this.enemyHQLoc) && rc.senseRobotAtLocation(this.enemyHQLoc) != null && rc.senseRobotAtLocation(this.enemyHQLoc).type != RobotType.HQ) {
             enemyHqSymmetryIdx += 1;
             enemyHQLoc = symmetryHq[enemyHqSymmetryIdx];
             if (enemyHqSymmetryIdx == 2) {
@@ -249,70 +229,68 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Scan the sensable area for water for some dunking/fun in the sun action.
         Utils.traverseSensable(rc, loc -> {
-            // Update the closest water tile
+            int dist = loc.distanceSquaredTo(rc.getLocation());
+
+            // Update closest water tile.
             if (rc.senseFlooding(loc)) {
-                int dist = loc.distanceSquaredTo(rc.getLocation());
                 if (dist < waterDistance[0]) {
                     this.closestWater = loc;
                     waterDistance[0] = dist;
                 }
-            } else {
-                //Update locations of robots and cows
-                RobotInfo nearbyRobot = rc.senseRobotAtLocation(loc);
-                if (nearbyRobot != null) {
-                    if (nearbyRobot.type == RobotType.COW) {
-                        int dist = loc.distanceSquaredTo(rc.getLocation());
-                        if (dist < cowDistance[0]) {
-                            this.closestCow = loc;
-                            cowDistance[0] = dist;
-                        }
-                    } else if (nearbyRobot.team != rc.getTeam()) {
-                        if (nearbyRobot.type == RobotType.MINER || nearbyRobot.type == RobotType.LANDSCAPER) {
-                            int dist = loc.distanceSquaredTo(rc.getLocation());
-                            if (dist < enemyLandUnitDistance[0]) {
-                                this.closestEnemyLandUnit = loc;
-                                enemyLandUnitDistance[0] = dist;
-                            }
-                        } else if (nearbyRobot.type == RobotType.HQ && this.enemyHQLoc == null) {
-                            this.enemyHQLoc = nearbyRobot.location;
-                            if (foundHQ == false) {
-                                comms.setEnemyBaseLocation(this.enemyHQLoc);
-                                foundHQ = true;
-                            }
-                        }
-                    } else if (nearbyRobot.type == RobotType.MINER) {
-                        int dist = loc.distanceSquaredTo(rc.getLocation());
-                        if (dist < friendlyMinerDistance[0]) {
-                            this.closestFriendlyMiner = loc;
-                            friendlyMinerDistance[0] = dist;
-                            closestFriendlyMinerElevation = rc.senseElevation(loc);
-                        }
-                    } else if (nearbyRobot.type == RobotType.LANDSCAPER) {
-                        boolean onWall = false;
-                        for (int i = 0; i < wallLocations.adjacentWallSpots.length; i++) {
-                            if (nearbyRobot.location.equals(wallLocations.adjacentWallSpots[i])) {
-                                onWall = true;
-                                break;
-                            }
-                        }
-                        if (onWall == false) {
-                            int dist = loc.distanceSquaredTo(rc.getLocation());
-                            if (dist < friendlyLandscaperDistance[0]) {
-                                this.closestFriendlyLandscaper = loc;
-                                friendlyLandscaperDistance[0] = dist;
-                                //closestFriendlyMinerElevation = rc.senseElevation(loc);
-                            }
-                        }
-                    } else if (nearbyRobot.type == RobotType.HQ && this.friendlyHQLoc == null) {
-                        this.friendlyHQLoc = nearbyRobot.location;
+
+                return;
+            }
+
+            // Update locations of robots and cows
+            RobotInfo nearbyRobot = rc.senseRobotAtLocation(loc);
+            if (nearbyRobot != null) {
+                if (nearbyRobot.type == RobotType.COW) {
+                    if (dist < cowDistance[0]) {
+                        this.closestCow = loc;
+                        cowDistance[0] = dist;
                     }
-                } else if (rc.senseSoup(loc) > 0 && seemsInaccessible(rc, loc)) {
-                    //TODO: Account for soup that is in water, but adjacent to land that's inaccessible to miners
-                    int dist = loc.distanceSquaredTo(rc.getLocation());
-                    if (dist < hardSoupDistance[0]) {
-                        this.closestHardSoup = loc;
-                        hardSoupDistance[0] = dist;
+                } else if (nearbyRobot.team != rc.getTeam()) {
+                    if (nearbyRobot.type == RobotType.MINER || nearbyRobot.type == RobotType.LANDSCAPER) {
+                        if (dist < enemyLandUnitDistance[0]) {
+                            this.closestEnemyLandUnit = loc;
+                            enemyLandUnitDistance[0] = dist;
+                        }
+                    } else if (nearbyRobot.type == RobotType.HQ && this.enemyHQLoc == null) {
+                        this.enemyHQLoc = nearbyRobot.location;
+                        if (foundHQ == false) {
+                            comms.setEnemyBaseLocation(this.enemyHQLoc);
+                            foundHQ = true;
+                        }
                     }
+                } else if (nearbyRobot.type == RobotType.MINER) {
+                    if (dist < friendlyMinerDistance[0]) {
+                        this.closestFriendlyMiner = loc;
+                        friendlyMinerDistance[0] = dist;
+                        closestFriendlyMinerElevation = rc.senseElevation(loc);
+                    }
+                } else if (nearbyRobot.type == RobotType.LANDSCAPER) {
+                    boolean onWall = false;
+                    for (int i = 0; i < wallLocations.adjacentWallSpots.length; i++) {
+                        if (nearbyRobot.location.equals(wallLocations.adjacentWallSpots[i])) {
+                            onWall = true;
+                            break;
+                        }
+                    }
+                    if (!onWall) {
+                        if (dist < friendlyLandscaperDistance[0]) {
+                            this.closestFriendlyLandscaper = loc;
+                            friendlyLandscaperDistance[0] = dist;
+                            //closestFriendlyMinerElevation = rc.senseElevation(loc);
+                        }
+                    }
+                } else if (nearbyRobot.type == RobotType.HQ && this.friendlyHQLoc == null) {
+                    this.friendlyHQLoc = nearbyRobot.location;
+                }
+            } else if (rc.senseSoup(loc) > 0 && seemsInaccessible(rc, loc)) {
+                //TODO: Account for soup that is in water, but adjacent to land that's inaccessible to miners
+                if (dist < hardSoupDistance[0]) {
+                    this.closestHardSoup = loc;
+                    hardSoupDistance[0] = dist;
                 }
             }
         });
@@ -357,21 +335,16 @@ public strictfp class DeliveryDrone extends Unit {
     public Transition findingLandscaper(RobotController rc) throws GameActionException {
         // If somehow holding a unit, dunk it
         // TODO: Be very very sure we won't dunk our own units
-        if (rc.isCurrentlyHoldingUnit()) {
-            return new Transition(DroneState.DUNKING, false);
-        }
+        if (rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.DUNKING, false);
 
-        //It's possible that the miner we're looking for has disappeared. In that case, go back to roaming.
-        if (closestFriendlyLandscaper == null) {
-            return new Transition(DroneState.ROAMING, false);
-        }
+        //It's possible that the landscaper we're looking for has disappeared. In that case, go back to roaming.
+        if (closestFriendlyLandscaper == null) return new Transition(DroneState.ROAMING, false);
 
         // If adjacent to a friendly landscaper, pick it up
         if (rc.getLocation().isAdjacentTo(closestFriendlyLandscaper)) {
             RobotInfo targetLandscaperInfo = rc.senseRobotAtLocation(closestFriendlyLandscaper);
-            if (targetLandscaperInfo == null) {
-                return new Transition(DroneState.ROAMING, false);
-            }
+            if (targetLandscaperInfo == null) return new Transition(DroneState.ROAMING, false);
+
             if (rc.canPickUpUnit(targetLandscaperInfo.ID)) {
                 rc.pickUpUnit(targetLandscaperInfo.ID);
                 return new Transition(DroneState.FERRYING_LANDSCAPER, true);
@@ -379,14 +352,7 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         // If no pathfinder, create it to the closest friendly miner.
-        if (this.pathfinder == null) {
-            // If we haven't seen any friendly landscapers, cry a little and roam.
-            if (closestFriendlyLandscaper == null) {
-                return new Transition(DroneState.ROAMING, false);
-            } else {
-                this.pathfinder = this.newPathfinder(closestFriendlyLandscaper, true);
-            }
-        }
+        if (this.pathfinder == null) this.pathfinder = this.newPathfinder(closestFriendlyLandscaper, true);
 
         // Obtain a movement from the pathfinder and follow it.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
@@ -400,28 +366,16 @@ public strictfp class DeliveryDrone extends Unit {
      */
     public Transition ferryingLandscaper(RobotController rc) throws GameActionException {
         // If not carrying anything, transition to roaming.
-        if (!rc.isCurrentlyHoldingUnit()) {
-            return new Transition(DroneState.ROAMING, false);
-        }
+        if (!rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.ROAMING, false);
 
+        // Find which wall location to transition to; if every location is occupied, then give up and roam.
         MapLocation targetLoc = wallLocations.adjacentWallSpots[wallIdxTarget];
         while (rc.canSenseLocation(targetLoc) && rc.isLocationOccupied(targetLoc)) {
             wallIdxTarget += 1;
             if (wallIdxTarget >= wallLocations.adjacentWallSpots.length) {
-                return new Transition(DroneState.ROAMING, false);
+                return new Transition(DroneState.DROPOFF_FRIENDLY, false);
             } else {
                 targetLoc = wallLocations.adjacentWallSpots[wallIdxTarget];
-            }
-        }
-
-        // If something has happened to our destination, drop the landscaper
-        if (targetLoc == null) {
-            for (Direction adj : Direction.allDirections()) {
-                if (adj == Direction.CENTER) continue;
-                if (!rc.senseFlooding(rc.getLocation().add(adj)) && rc.canDropUnit(adj)) {
-                    rc.dropUnit(adj);
-                    return new Transition(DroneState.ROAMING, true);
-                }
             }
         }
 
@@ -435,14 +389,7 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         // If no pathfinder, create it to the closest hard-to-reach soup.
-        if (this.pathfinder == null) {
-            // If all hard soup is gone, cry a little and roam.
-            if (targetLoc == null) {
-                return new Transition(DroneState.ROAMING, false);
-            } else {
-                this.pathfinder = this.newPathfinder(targetLoc, true);
-            }
-        }
+        if (this.pathfinder == null) this.pathfinder = this.newPathfinder(targetLoc, true);
 
         // Obtain a movement from the pathfinder and follow it.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
@@ -451,14 +398,49 @@ public strictfp class DeliveryDrone extends Unit {
         return new Transition(DroneState.FERRYING_LANDSCAPER, true);
     }
 
+    /** If ferrying miners/landscapers is interrupted, tries to drop them off on any available space. */
+    public Transition dropoffFriendly(RobotController rc) throws GameActionException {
+        // If we aren't holding something suddenly, transition immediately.
+        if (!rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.ROAMING, false);
+
+        // If we can drop the unit off on any tile, do so.
+        for (Direction dir : Direction.allDirections()) {
+            if (dir == Direction.CENTER) continue;
+
+            if (rc.canDropUnit(dir)) {
+                rc.dropUnit(dir);
+                return new Transition(DroneState.ROAMING, true);
+            }
+        }
+
+        // Otherwise, roam around looking for a space to drop off.
+        // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
+        if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation())) {
+            // TODO: More intelligent target selection. We choose randomly for now.
+            // Suggestion: Drone remembers where it last picked enemy up and goes back. If nobody there, roam randomly.
+            MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
+
+            this.pathfinder = this.newPathfinder(target, true);
+        }
+
+        // We've wasted too much time on this, just give up on the unit.
+        if (this.pathfindSteps >= 2 * Config.MAX_ROAM_DISTANCE) return new Transition(DroneState.ROAMING, false);
+
+        // Obtain a movement from the pathfinder and follow it.
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
+        if (move != null && move != Direction.CENTER) rc.move(move);
+        this.pathfindSteps++;
+
+        return new Transition(DroneState.DROPOFF_FRIENDLY, true);
+    }
+
     /**
      * Implements roaming behavior, where the drone roams until it finds an enemy somewhere.
      */
     public Transition roaming(RobotController rc) throws GameActionException {
         // Check if carrying anything. If so, transition to dunking.
-        if (rc.isCurrentlyHoldingUnit() && closestWater != null) {
+        if (rc.isCurrentlyHoldingUnit() && closestWater != null)
             return new Transition(DroneState.DUNKING, false);
-        }
 
         // Look for enemy robot. If see one and not currently holding a unit, transition to chasing.
         if (!rc.isCurrentlyHoldingUnit()) {
@@ -482,10 +464,9 @@ public strictfp class DeliveryDrone extends Unit {
             return new Transition(DroneState.FINDING_LANDSCAPER, false);
         }
 
-        //If drone knows where a cow is, it chases after it.
-        if (closestCow != null && !rc.isCurrentlyHoldingUnit()) {
+        // If drone knows where a cow is, it chases after it.
+        if (closestCow != null && !rc.isCurrentlyHoldingUnit())
             return new Transition(DroneState.FINDING_COW, false);
-        }
 
         // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation())) {
@@ -508,9 +489,7 @@ public strictfp class DeliveryDrone extends Unit {
      */
     public Transition dunking(RobotController rc) throws GameActionException {
         // If not carrying anything, transition to roaming.
-        if (!rc.isCurrentlyHoldingUnit()) {
-            return new Transition(DroneState.ROAMING, false);
-        }
+        if (!rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.ROAMING, false);
 
         // If we can dunk an enemy, immediately do so and go back to roaming to find more victims.
         for (Direction dir : Direction.allDirections()) {
@@ -545,9 +524,7 @@ public strictfp class DeliveryDrone extends Unit {
         MapLocation droneLoc = rc.getLocation();
 
         // Check if carrying anything. If so, transition to dunking.
-        if (rc.isCurrentlyHoldingUnit() && closestWater != null) {
-            return new Transition(DroneState.DUNKING, false);
-        }
+        if (rc.isCurrentlyHoldingUnit() && closestWater != null) return new Transition(DroneState.DUNKING, false);
 
         // Look for enemy robot. If see one, identify closest unit that can be picked up and move towards it.
         // If can already pick up unit, do so and transition to dunking.
@@ -593,14 +570,10 @@ public strictfp class DeliveryDrone extends Unit {
     public Transition findingMiner(RobotController rc) throws GameActionException {
         // If somehow holding a unit, dunk it
         // TODO: Be very very sure we won't dunk our own units
-        if (rc.isCurrentlyHoldingUnit()) {
-            return new Transition(DroneState.DUNKING, false);
-        }
+        if (rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.DUNKING, false);
 
         //It's possible that the miner we're looking for has disappeared. In that case, go back to roaming.
-        if (closestFriendlyMiner == null) {
-            return new Transition(DroneState.ROAMING, false);
-        }
+        if (closestFriendlyMiner == null) return new Transition(DroneState.ROAMING, false);
 
         //TODO:  If miner is already very close (adjacent) to soup, then don't pick it up
 
@@ -636,20 +609,10 @@ public strictfp class DeliveryDrone extends Unit {
 
     public Transition ferryingMiner(RobotController rc) throws GameActionException {
         // If not carrying anything, transition to roaming.
-        if (!rc.isCurrentlyHoldingUnit()) {
-            return new Transition(DroneState.ROAMING, false);
-        }
+        if (!rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.ROAMING, false);
 
         // If something has happened to our destination, drop the miner
-        if (closestHardSoup == null) {
-            for (Direction adj : Direction.allDirections()) {
-                if (adj == Direction.CENTER) continue;
-                if (!rc.senseFlooding(rc.getLocation().add(adj)) && rc.canDropUnit(adj)) {
-                    rc.dropUnit(adj);
-                    return new Transition(DroneState.ROAMING, true);
-                }
-            }
-        }
+        if (closestHardSoup == null) return new Transition(DroneState.DROPOFF_FRIENDLY, true);
 
         // If we can drop miner on soup location, immediately do so and go back to roaming
         if (rc.getLocation().isAdjacentTo(closestHardSoup)) {
@@ -658,7 +621,8 @@ public strictfp class DeliveryDrone extends Unit {
                 rc.dropUnit(onSoupDirection);
                 return new Transition(DroneState.ROAMING, true);
             }
-            //If can't drop it directly on the tile, drop miner on any non-flooded tile
+
+            // If can't drop it directly on the tile, drop miner on any non-flooded tile
             for (Direction adj : Direction.allDirections()) {
                 if (adj == Direction.CENTER) continue;
                 if (!rc.senseFlooding(rc.getLocation().add(adj)) && rc.canDropUnit(adj)) {
@@ -688,14 +652,10 @@ public strictfp class DeliveryDrone extends Unit {
     public Transition findingEnemy(RobotController rc) throws GameActionException {
         // If carrying anything, transition to dunking.
         // This shouldn't happen, but it's here just in case
-        if (rc.isCurrentlyHoldingUnit()) {
-            return new Transition(DroneState.DUNKING, false);
-        }
+        if (rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.DUNKING, false);
 
         // If there's no longer an enemy where we thought there was, give up the hunt and start roaming.
-        if (closestEnemyLandUnit == null) {
-            return new Transition(DroneState.ROAMING, false);
-        }
+        if (closestEnemyLandUnit == null) return new Transition(DroneState.ROAMING, false);
 
         // If we see an enemy, transition to chasing it
         RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
