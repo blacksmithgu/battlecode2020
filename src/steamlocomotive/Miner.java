@@ -6,7 +6,7 @@ public class Miner extends Unit {
 
     /** The possible miner states the miner can be in. */
     public enum MinerState {
-        /** The miner is dropping off resources at HQ. */
+        /** The miner is dropping off resources at a refinery. */
         DROPOFF,
         /** The miner is traveling to a mine. */
         TRAVEL,
@@ -14,6 +14,8 @@ public class Miner extends Unit {
         MINE,
         /** The miner is roaming looking for soup. */
         ROAMING,
+        /** The miner isn't considering opening a refinery - it has no choice but to. The State has decided it's fate. */
+        FORCE_REFINERY,
         /** The miner is considering opening a refinery of it's own, settling down, having a family. */
         DREAMING_ABOUT_REFINERY,
         /** The miner is considering opening a fulfillment center or design school, to really start building the community. */
@@ -54,12 +56,17 @@ public class Miner extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
+        // Update comms so we are aware of important global state.
+        comms.updateForTurn(rc);
+
         // Update soup and unit knowledge by scanning surroundings.
         this.scanSurroundings(rc);
 
-        comms.updateForTurn(rc);
+        // Emergency self-defense checks (like netguns).
+        this.checkForSelfDefense(rc);
 
-        if (foundHQ == false){
+        // TODO: Cleanup HQ finding logic.
+        if (foundHQ == false) {
             if (comms.getEnemyBaseLocation()!=null){
                 this.enemyHq = comms.getEnemyBaseLocation();
                 foundHQ = true;
@@ -73,6 +80,7 @@ public class Miner extends Unit {
                 case DROPOFF: next = this.dropoff(rc); break;
                 case TRAVEL: next = this.travel(rc); break;
                 case MINE: next = this.mining(rc); break;
+                case FORCE_REFINERY: next = this.forceRefinery(rc); break;
                 case DREAMING_ABOUT_REFINERY: next = this.refinery(rc); break;
                 case DREAMING_ABOUT_BUILDINGS: next = this.buildings(rc); break;
                 default:
@@ -94,9 +102,8 @@ public class Miner extends Unit {
             this.state = next;
         }
 
-        if (numTransitions >= 100) {
+        if (numTransitions >= 100)
             System.out.println("Went through more than 100 transitions in one state machine execution...");
-        }
 
         // Useful for debugging.
         if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 255, 0, 0);
@@ -105,6 +112,7 @@ public class Miner extends Unit {
     /** Update soup cluster and dropoff state. */
     public void scanSurroundings(RobotController rc) throws GameActionException {
         // Update the closest refinery.
+        // TODO: Reduce number of scan calls to 1 instead of 3.
         Utils.ClosestRobot closeRefinery = Utils.closestRobot(rc, RobotType.REFINERY, rc.getTeam());
         int refineDistance = this.refinery == null ? Integer.MAX_VALUE : this.refinery.distanceSquaredTo(rc.getLocation());
         if (closeRefinery.distance < refineDistance) this.refinery = closeRefinery.robot.getLocation();
@@ -152,16 +160,21 @@ public class Miner extends Unit {
                     if (!hasSolidAdj) continue;
                 }
             }
+
             this.soups.update(rc, soupLoc, this.rng);
         }
+    }
+
+    /** Scan for dangerous enemies and potentially reactively build defenses. */
+    public void checkForSelfDefense(RobotController rc) throws GameActionException {
+        if (rc.getTeamSoup() < Config.MIN_SOUP_NET_GUN) return;
 
         // Check for enemy drones and try to build a net gun
-        // TODO: actually integrate this into the code rather than have it here
-        if(rc.getTeamSoup() >= Config.MIN_SOUP_NET_GUN && Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam().opponent()).distance < GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
+        if(Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam().opponent()).distance <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
             for(Direction dir: Direction.allDirections()) {
                 if(rc.canBuildRobot(RobotType.NET_GUN, dir)) {
                     rc.buildRobot(RobotType.NET_GUN, dir);
-                    break;
+                    return;
                 }
             }
         }
@@ -169,13 +182,13 @@ public class Miner extends Unit {
 
     /** Implements roaming behavior, where the miner roams until it finds soup somewhere. */
     public MinerState roaming(RobotController rc) throws GameActionException {
-        // If our inventory is full and there is a refinery that is reachable, head there.
-        if (rc.getSoupCarrying() >= Config.INVENTORY_RETURN_SIZE && this.refinery != null) return MinerState.DROPOFF;
+        // If our inventory is full, drop it off.
+        if (rc.getSoupCarrying() >= Config.INVENTORY_RETURN_SIZE) return MinerState.DROPOFF;
 
         // If there is nonzero soup we are aware of, transition to traveling to it.
         if (rc.getSoupCarrying() < Config.INVENTORY_RETURN_SIZE && soups.hasCluster()) return MinerState.TRAVEL;
 
-        // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
+        // Otherwise, roam around looking for soup and other objects of interest.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
             // TODO: More intelligent target selection. We choose randomly for now.
             MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
@@ -241,14 +254,12 @@ public class Miner extends Unit {
 
     /** Dropoff behavior, where a miner travels to the refinery for dropoff. */
     public MinerState dropoff(RobotController rc) throws GameActionException {
-        // No refinery to drop off to, roam around looking for one.
-        if (this.refinery == null) return MinerState.ROAMING;
-
         // If construction has started on the wall, drop efforts to drop at the HQ.
-        if (this.refinery.equals(this.hq) && rc.canSenseLocation(this.hq) && wallStarted(rc, this.hq)) {
+        if (this.hq.equals(this.refinery) && rc.canSenseLocation(this.hq) && wallStarted(rc, this.hq))
             this.refinery = null;
-            return MinerState.DREAMING_ABOUT_REFINERY;
-        }
+
+        // No refinery to drop off to; this should not happen often, so we'll force building a refinery here.
+        if (this.refinery == null) return MinerState.FORCE_REFINERY;
 
         // Set up the pathfinder if it's currently null.
         if (this.pathfinder == null) this.pathfinder = this.newPathfinder(this.refinery, true);
@@ -267,8 +278,9 @@ public class Miner extends Unit {
 
                 return MinerState.TRAVEL;
             } else {
-                // No refinery is where we thought it was anymore. Start roaming around looking for a refinery.
-                return MinerState.ROAMING;
+                // No refinery is where we thought it was anymore; that's not good. Build a new one.
+                // TODO: Roaming around in this case is acceptable.
+                return MinerState.FORCE_REFINERY;
             }
         }
 
@@ -281,6 +293,41 @@ public class Miner extends Unit {
         this.pathfindSteps++;
 
         return MinerState.DROPOFF;
+    }
+
+    /** Forces the building of an accessible refinery. This supercedes distance checks. */
+    public MinerState forceRefinery(RobotController rc) throws GameActionException {
+        // Looks like there is a refinery; go use it. Prevents every miner from building their own refinery.
+        if (this.refinery != null) return MinerState.DROPOFF;
+
+        // Scan the nearby surroundings for a good place within a few steps of us to build our building.
+        if (this.pathfinder == null) {
+            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE);
+
+            // No good locations, give up.
+            if (best == null) return MinerState.TRAVEL;
+
+            this.pathfinder = this.newPathfinder(best, true);
+        }
+
+        // If done, attempt to build.
+        if (this.pathfinder.finished(rc.getLocation())) {
+            Direction towards = rc.getLocation().directionTo(this.pathfinder.goal());
+            if (rc.canBuildRobot(RobotType.REFINERY, towards)) {
+                rc.buildRobot(RobotType.REFINERY, towards);
+                return MinerState.DROPOFF;
+            } else {
+                return MinerState.FORCE_REFINERY;
+            }
+        }
+
+        // Otherwise, take a step with the pathfinder.
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+        if (move != null && move != Direction.CENTER) rc.move(move);
+        this.pathfindSteps++;
+
+        // You better build a refinery - there's no escaping now.
+        return MinerState.FORCE_REFINERY;
     }
 
     /** Try to build a refinery in a reasonable place (not adjacent to any existing building!). */
@@ -298,7 +345,7 @@ public class Miner extends Unit {
             MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE);
 
             // No good locations, give up.
-            if (best == null) return MinerState.TRAVEL;
+            if (best == null) return MinerState.DROPOFF;
 
             this.pathfinder = this.newPathfinder(best, true);
         }
@@ -371,7 +418,6 @@ public class Miner extends Unit {
         if (move != null && move != Direction.CENTER) rc.move(move);
         this.pathfindSteps++;
 
-        // :(
         return MinerState.DREAMING_ABOUT_BUILDINGS;
     }
 
@@ -415,6 +461,7 @@ public class Miner extends Unit {
                 if (robot.location.equals(loc)) return false;
                 continue;
             }
+
             if (loc.isAdjacentTo(robot.location)) return false;
         }
 
@@ -462,10 +509,11 @@ public class Miner extends Unit {
 
             MapLocation loc = hq.add(d);
             if (!rc.canSenseLocation(loc)) continue;
+
             RobotInfo robot = rc.senseRobotAtLocation(loc);
             if (robot != null && robot.type == RobotType.LANDSCAPER) numDiggers++;
         }
 
-        return numDiggers >= 4;
+        return numDiggers >= 6;
     }
 }
