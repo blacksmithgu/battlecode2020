@@ -1,19 +1,23 @@
 package steamlocomotive;
 
+import battlecode.common.Team;
+
 public class Block {
-    int[] content;
+    final int[] content;
+    final Team team;
 
     /**
      * Create a block from 6 ints
      */
-    private Block(int[] content) {
+    private Block(int[] content, Team team) {
         this.content = content;
+        this.team = team;
     }
 
     /**
      * Create a block from a 7 int array or return null if the message is not ours
      */
-    public static Block extractBlock(int[] block) {
+    public static Block extractBlock(int[] block, Team team) {
         if (block.length != 7) {
             return null;
         }
@@ -21,10 +25,10 @@ public class Block {
         int checksum = extractChecksum(block);
         int[] content = extractContent(block);
 
-        if (!correctChecksum(content, checksum)) {
+        if (!correctChecksum(content, checksum, team)) {
             return null;
         }
-        return new Block(content);
+        return new Block(content, team);
     }
 
     private static int[] extractContent(int[] block) {
@@ -44,28 +48,31 @@ public class Block {
     }
 
     /**
-     * Verify that a checksum is valid for a message of 6 ints
+     * Verify that a checksum is valid for a message of 7 ints
      */
-    private static boolean correctChecksum(int[] message, int checksum) {
-        return checksum == 0;
+    private static boolean correctChecksum(int[] message, int checksum, Team team) {
+        if(team == Team.A) {
+            return checksum == 6123412;
+        }
+        return checksum == 32742361;
     }
 
     /**
      * Compute a checksum from a 6 int message
      */
-    private static int computeChecksum(int[] message) {
-        return 0;
+    private static int computeChecksum(int[] message, Team team) {
+        return team == Team.A ? 6123412 : 32742361;
     }
 
     /**
      * Creates a block from a message of 6 ints or returns null if input is the wrong size
      */
-    public static Block createBlock(int[] message) {
+    public static Block createBlock(int[] message, Team team) {
         if(message.length != 6) {
             return null;
         }
 
-        return new Block(message);
+        return new Block(message, team);
     }
 
     /**
@@ -76,7 +83,7 @@ public class Block {
         for (int index = 0; index < 6; index++) {
             message[index] = content[index];
         }
-        message[6] = computeChecksum(content);
+        message[6] = computeChecksum(content, team);
         return message;
     }
 

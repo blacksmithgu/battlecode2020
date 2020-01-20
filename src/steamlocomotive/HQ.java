@@ -132,7 +132,7 @@ public class HQ extends Unit {
             }
         }
 
-        return new Bitconnect.HQSurroundings(rc.getLocation(), wallSpots.toArray(new MapLocation[0]));
+        return new Bitconnect.HQSurroundings(rc.getLocation(), wallSpots.toArray(new MapLocation[0]), rc.getTeam());
     }
 
     public void onCreation(RobotController rc) throws GameActionException {

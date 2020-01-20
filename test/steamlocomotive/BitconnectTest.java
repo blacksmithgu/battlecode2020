@@ -1,9 +1,6 @@
 package steamlocomotive;
 
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
-import battlecode.common.Transaction;
+import battlecode.common.*;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -28,22 +25,23 @@ public class BitconnectTest {
         RobotController rc = Mockito.mock(RobotController.class);
         Mockito.when(rc.getBlock(anyInt())).thenReturn(new Transaction[0]);
         Mockito.when(rc.getTeamSoup()).thenReturn(Integer.MAX_VALUE);
+        Mockito.when(rc.getTeam()).thenReturn(Team.A);
         Bitconnect bitconnect = new Bitconnect(rc, 10, 10);
 
         MapLocation[] adj = new MapLocation[1];
         adj[0] = new MapLocation(2,2);
 
-        Bitconnect.HQSurroundings surroundings = new Bitconnect.HQSurroundings(new MapLocation(1,2), adj);
+        Bitconnect.HQSurroundings surroundings = new Bitconnect.HQSurroundings(new MapLocation(1,2), adj, rc.getTeam());
 
         bitconnect.sendLandscaperLocations(rc, surroundings);
         Block block = bitconnect.blocksToSend.pop();
 
-        int[] expectedBlock = {42,1,2,4,0,0,0};
-        Block expected = Block.extractBlock(expectedBlock);
+        int[] expectedBlock = {42,1,2,4,0,0,6123412};
+        Block expected = Block.extractBlock(expectedBlock, rc.getTeam());
 
         assertArrayEquals(expected.content, block.content);
 
-        Bitconnect.HQSurroundings result = Bitconnect.HQSurroundings.fromMessage(block);
+        Bitconnect.HQSurroundings result = Bitconnect.HQSurroundings.fromMessage(block, rc.getTeam());
 
         assertTrue(surroundings.equals(result));
         assertEquals(1, surroundings.adjacentWallSpots.length);

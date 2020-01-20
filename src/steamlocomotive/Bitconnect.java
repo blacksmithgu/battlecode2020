@@ -15,6 +15,8 @@ public class Bitconnect {
     // is our wall done
     boolean isWallDone = false;
 
+    final Team ourTeam;
+
     private MapLocation enemyBaseLocation = null;
 
     final CircularStack<Block> blocksToSend;
@@ -36,15 +38,17 @@ public class Bitconnect {
     }
 
     public static class HQSurroundings {
-        MapLocation hq;
-        MapLocation[] adjacentWallSpots;
+        final MapLocation hq;
+        final MapLocation[] adjacentWallSpots;
+        final Team ourTeam;
 
         /**
          * adjacent wall spots should be next to the HQ.
          */
-        public HQSurroundings(MapLocation hq, MapLocation[] adjacentWallSpots) {
+        public HQSurroundings(MapLocation hq, MapLocation[] adjacentWallSpots, Team ourTeam) {
             this.hq = hq;
             this.adjacentWallSpots = adjacentWallSpots;
+            this.ourTeam = ourTeam;
         }
 
         private boolean listContainsLocation(MapLocation[] locs, MapLocation location) {
@@ -78,10 +82,10 @@ public class Bitconnect {
                 index++;
             }
 
-            return Block.createBlock(message);
+            return Block.createBlock(message, ourTeam);
         }
 
-        public static HQSurroundings fromMessage(Block block) {
+        public static HQSurroundings fromMessage(Block block, Team team) {
             int[] message = block.getBlockMessage();
             if(message[0]!=MessageType.HQ_SETTUP.getId()) {
                 return null;
@@ -109,7 +113,7 @@ public class Bitconnect {
                 }
                 adjIndex++;
             }
-            return new HQSurroundings(hq, locations);
+            return new HQSurroundings(hq, locations, team);
         }
 
         public boolean equals(HQSurroundings other) {
@@ -149,13 +153,14 @@ public class Bitconnect {
         this.width = width;
         this.height = height;
         this.blocksToSend = new CircularStack<Block>(10);
+        this.ourTeam = rc.getTeam();
 
         for(int turn = 1; turn < 20 && turn < rc.getRoundNum(); turn++) {
             Transaction[] transactions = rc.getBlock(turn);
             for(Transaction transaction: transactions) {
-                Block block = Block.extractBlock(transaction.getMessage());
+                Block block = Block.extractBlock(transaction.getMessage(), ourTeam);
                 if(block != null) {
-                    HQSurroundings surroundings = HQSurroundings.fromMessage(block);
+                    HQSurroundings surroundings = HQSurroundings.fromMessage(block, ourTeam);
                     if(surroundings!=null) {
                         System.out.println("Our HQ is at: " + surroundings.hq);
                         this.ourHQSurroundings = surroundings;
@@ -167,7 +172,7 @@ public class Bitconnect {
         for(int turn = 1; turn < 50 && turn < rc.getRoundNum(); turn++) {
             Transaction[] transactions = rc.getBlock(rc.getRoundNum() - turn);
             for(Transaction transaction: transactions) {
-                Block block = Block.extractBlock(transaction.getMessage());
+                Block block = Block.extractBlock(transaction.getMessage(), ourTeam);
                 if(block != null) {
                     if(block.getMessage()[0]==MessageType.WALL_DONE.getId()) {
                         this.isWallDone = true;
@@ -201,9 +206,9 @@ public class Bitconnect {
 
         Transaction[] transactions = rc.getBlock(rc.getRoundNum()-1);
         for(Transaction transaction: transactions) {
-            Block block = Block.extractBlock(transaction.getMessage());
+            Block block = Block.extractBlock(transaction.getMessage(), ourTeam);
             if(block != null) {
-                HQSurroundings surroundings = HQSurroundings.fromMessage(block);
+                HQSurroundings surroundings = HQSurroundings.fromMessage(block, ourTeam);
                 if(surroundings!=null) {
                     System.out.println("Our HQ is at: " + surroundings.hq);
                     this.ourHQSurroundings = surroundings;
@@ -240,7 +245,7 @@ public class Bitconnect {
     public void wallClaimed(RobotController rc) {
         int[] message = new int[6];
         message[0] = MessageType.WALL_DONE.getId();
-        Block block = Block.createBlock(message);
+        Block block = Block.createBlock(message, ourTeam);
         this.blocksToSend.push(block);
     }
 
@@ -277,6 +282,6 @@ public class Bitconnect {
         message[0] = MessageType.ENEMY_BASE.getId();
         message[1] = location.x;
         message[2] = location.y;
-        this.blocksToSend.push(Block.createBlock(message));
+        this.blocksToSend.push(Block.createBlock(message, ourTeam));
     }
 }
