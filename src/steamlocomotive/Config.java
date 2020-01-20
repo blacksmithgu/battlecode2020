@@ -96,7 +96,15 @@ public class Config {
 
     // LANDSCAPER CONFIG
 
-    public static final int MAX_TERRAFORM_HEIGHT_DIFF = 10;
+    /**
+     * Returns the height the lattice should be terraformed to.
+     */
+    public static int terraformHeight(int round) {
+        // Make this dynamic w/ time using the current water level. All landscapers should share this value.
+        if (round < 800) return 5;
+        else if (round < 1400) return 10;
+        else return 20;
+    }
 
     /**
      * If a design school is this distance or closer to friendly HQ, it considers itself "close" to it

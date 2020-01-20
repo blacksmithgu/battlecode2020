@@ -28,7 +28,9 @@ public strictfp class DeliveryDrone extends Unit {
         // Drone puts the friendly landscaper on top of the wall
         FERRYING_LANDSCAPER,
         // The drone ferrying was interrupted due to new information, and it is dropping off it's carried unit.
-        DROPOFF_FRIENDLY
+        DROPOFF_FRIENDLY,
+        // The drone swarms the enemy HQ
+        SWARMING
     }
 
     private static class Transition {
@@ -133,6 +135,7 @@ public strictfp class DeliveryDrone extends Unit {
                 case FINDING_ENEMY: trans = this.findingEnemy(rc); break;
                 case FINDING_COW: trans = this.findingCow(rc); break;
                 case CHASING_COW: trans = this.chasingCow(rc); break;
+                case SWARMING: trans = this.swarming(rc); break;
                 default:
                 case ROAMING: trans = this.roaming(rc); break;
             }
@@ -449,6 +452,10 @@ public strictfp class DeliveryDrone extends Unit {
                 }
             }
         }
+
+        // If it's past round 1000, swarm the enemy base
+        if (rc.getRoundNum() >= 1000 && enemyHQLoc != null && !rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.SWARMING, false);
+
 
         //If there's hard-to-reach soup, and not currently carrying anything, transition to ferrying a miner
         if (closestHardSoup != null && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit()) {
@@ -777,6 +784,54 @@ public strictfp class DeliveryDrone extends Unit {
         // No unit to chase; go to roaming and hope things work out.
         return new Transition(DroneState.ROAMING, false);
     }
+
+    public Transition swarming(RobotController rc) throws GameActionException{
+        System.out.println("Swarming!");
+        if (rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.DUNKING,false);
+
+        // If drone doesn't know where HQ is, goes back to roaming
+        if (enemyHQLoc == null) return new Transition(DroneState.ROAMING, false);
+
+        // If sufficiently far from enemy base, then will dunk enemies on the way
+        if (rc.getLocation().distanceSquaredTo(enemyHQLoc) > 40) {
+            RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+            for (RobotInfo nearbyEnemy : enemyRobots) {
+                if (nearbyEnemy.type.canBePickedUp()) {
+                    return new Transition(DroneState.CHASING, false);
+                }
+            }
+        }
+
+        int numDroneFriends = 0;
+        // If drone near HQ and sees at least 8 friends (counting itself), it starts chasing
+        if (rc.getLocation().distanceSquaredTo(enemyHQLoc) < 25) {
+            RobotInfo[] friends = rc.senseNearbyRobots(-1, rc.getTeam());
+            for (RobotInfo friend : friends) {
+                if (friend.type == RobotType.DELIVERY_DRONE) numDroneFriends++;
+                if (numDroneFriends >=8) return new Transition(DroneState.CHASING, false);
+            }
+            // If near HQ but doesn't see enough drone friends, it stays still
+            return new Transition(DroneState.SWARMING, true);
+        }
+
+        // If drone not yet near HQ, it goes to it
+        // If no pathfinder, create it to the closest cow.
+        if (this.pathfinder == null) {
+            // If don't know where an enemy is, cry a little and roam.
+            if (enemyHQLoc == null) {
+                return new Transition(DroneState.ROAMING, false);
+            } else {
+                this.pathfinder = this.newPathfinder(enemyHQLoc, true);
+            }
+        }
+
+        // Obtain a movement from the pathfinder and follow it.
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
+        if (move != null && move != Direction.CENTER) rc.move(move);
+
+        return new Transition(DroneState.SWARMING, true);
+    }
+
 
     /** A movement check which respects enemy netgun range. */
     private static boolean canMoveD(RobotController rc, Direction dir, RobotInfo[] enemies, boolean respectNetguns) {

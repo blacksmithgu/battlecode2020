@@ -2,8 +2,6 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.io.Closeable;
-
 public class Landscaper extends Unit {
 
     /**
@@ -72,22 +70,12 @@ public class Landscaper extends Unit {
         while (rc.isReady()) {
             LandscaperState next;
             switch (this.state) {
-                case BUILD_WALL:
-                    next = this.buildWall(rc);
-                    break;
-                case MOVE_TO_WALL:
-                    next = this.moveToWall(rc);
-                    break;
-                case BURY_ENEMY:
-                    next = this.buryEnemy(rc);
-                    break;
-                case UNBURY_ALLY:
-                    next = this.unburyAlly(rc);
-                    break;
+                case BUILD_WALL: next = this.buildWall(rc); break;
+                case MOVE_TO_WALL: next = this.moveToWall(rc); break;
+                case BURY_ENEMY: next = this.buryEnemy(rc); break;
+                case UNBURY_ALLY: next = this.unburyAlly(rc); break;
                 default:
-                case TERRAFORM:
-                    next = this.terraform(rc);
-                    break;
+                case TERRAFORM: next = this.terraform(rc); break;
             }
 
             // Reset transient miner state.
@@ -361,7 +349,7 @@ public class Landscaper extends Unit {
         }
 
         int ourHeight = rc.senseElevation(rc.getLocation());
-        int terraHeight = this.terraformHeight(rc);
+        int terraHeight = Config.terraformHeight(rc.getRoundNum());
 
         double averageAdjacentElevation = 0;
         // If we are not on the checkerboard, get on the checkerboard.
@@ -531,17 +519,6 @@ public class Landscaper extends Unit {
         }
 
         return false;
-    }
-
-    /**
-     * Returns the height the lattice should be terraformed to.
-     */
-    private int terraformHeight(RobotController rc) {
-        // Make this dynamic w/ time using the current water level. All landscapers should share this value.
-        if (rc.getRoundNum() < 500) return 5;
-        else if (rc.getRoundNum() < 1000) return 10;
-        else if (rc.getRoundNum() < 1500) return 20;
-        else return 50;
     }
 
     /**
