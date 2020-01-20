@@ -106,6 +106,8 @@ public strictfp class DeliveryDrone extends Unit {
         // Update our comms
         comms.updateForTurn(rc);
 
+        Utils.print(state.toString());
+
         // Update water knowledge by scanning surroundings;
         if (this.state == DroneState.FINDING_LANDSCAPER || this.state == DroneState.FERRYING_LANDSCAPER) {
             this.scanSurroundingsDumb(rc);

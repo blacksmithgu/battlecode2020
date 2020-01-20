@@ -59,6 +59,8 @@ public class Miner extends Unit {
         // Update comms so we are aware of important global state.
         comms.updateForTurn(rc);
 
+        Utils.print(state.toString());
+
         // Update soup and unit knowledge by scanning surroundings.
         this.scanSurroundings(rc);
 

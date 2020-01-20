@@ -139,4 +139,6 @@ public class Config {
     public static final int DRONE_PROD_RATE_FOUR = 2;
 
     public static final int MIN_SOUP_NET_GUN = 250;
+
+    public static final boolean DEBUG = true;
 }
