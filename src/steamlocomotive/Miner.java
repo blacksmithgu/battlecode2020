@@ -2,6 +2,8 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
+import java.awt.*;
+
 public class Miner extends Unit {
 
     /** The possible miner states the miner can be in. */
@@ -31,7 +33,7 @@ public class Miner extends Unit {
     // Clusters seen soup locations.
     private Utils.Clusterer soups;
     // The location of the refinery/HQ we are dumping resources at, as well as the last seen fulfillment and design centers.
-    private MapLocation refinery, fulfillment, design;
+    private MapLocation refinery, fulfillment, design, netGun, vaporator;
     // The location of the HQ. Given that we spawn here, we should always know where it is!
     private MapLocation hq;
     // Enemy HQ location
@@ -112,7 +114,7 @@ public class Miner extends Unit {
     /** Update soup cluster and dropoff state. */
     public void scanSurroundings(RobotController rc) throws GameActionException {
         // Update the closest refinery.
-        // TODO: Reduce number of scan calls to 1 instead of 3.
+        // TODO: Reduce number of scan calls to 1 instead of 5.
         Utils.ClosestRobot closeRefinery = Utils.closestRobot(rc, RobotType.REFINERY, rc.getTeam());
         int refineDistance = this.refinery == null ? Integer.MAX_VALUE : this.refinery.distanceSquaredTo(rc.getLocation());
         if (closeRefinery.distance < refineDistance) this.refinery = closeRefinery.robot.getLocation();
@@ -125,6 +127,14 @@ public class Miner extends Unit {
         Utils.ClosestRobot closeDesign = Utils.closestRobot(rc, RobotType.DESIGN_SCHOOL, rc.getTeam());
         int designDistance = this.design == null ? Integer.MAX_VALUE : this.design.distanceSquaredTo(rc.getLocation());
         if (closeDesign.distance < designDistance) this.design = closeDesign.robot.location;
+
+        Utils.ClosestRobot closeNetGun = Utils.closestRobot(rc, RobotType.NET_GUN, rc.getTeam());
+        int netGunDistance = this.netGun == null ? Integer.MAX_VALUE : this.netGun.distanceSquaredTo(rc.getLocation());
+        if (closeNetGun.distance < netGunDistance) this.netGun = closeNetGun.robot.location;
+
+        Utils.ClosestRobot closeVaporator = Utils.closestRobot(rc, RobotType.VAPORATOR, rc.getTeam());
+        int vaporatorDistance = this.vaporator == null ? Integer.MAX_VALUE : this.vaporator.distanceSquaredTo(rc.getLocation());
+        if (closeVaporator.distance < vaporatorDistance) this.vaporator = closeVaporator.robot.location;
 
         // Update the location of the enemy HQ if needed.
         Utils.ClosestRobot enemyHqLoc = Utils.closestRobot(rc, RobotType.HQ, rc.getTeam().opponent());
@@ -288,7 +298,7 @@ public class Miner extends Unit {
 
                 // Build a fulfillment center/design school if necessary.
                 if (rc.getRoundNum() > Config.BUILD_BUILDING_MIN_ROUND && rc.getTeamSoup() > Config.BUILD_BUILDING_MIN_SOUP) {
-                    if (this.hq.distanceSquaredTo(rc.getLocation()) < rc.getCurrentSensorRadiusSquared() || this.rng.nextDouble() < Config.BUILD_BUILDING_PROB) return MinerState.DREAMING_ABOUT_BUILDINGS;
+                   return MinerState.DREAMING_ABOUT_BUILDINGS;
                 }
 
                 return MinerState.TRAVEL;
@@ -396,8 +406,10 @@ public class Miner extends Unit {
         // Determine which buildings we should consider building based on how far away we are from existing buildings.
         boolean buildFulfillment = (this.fulfillment == null || this.fulfillment.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST);
         boolean buildDesign = (this.design == null || this.design.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST);
+        boolean buildNetGun = (this.netGun == null || this.netGun.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_NET_GUN_MIN_DIST);
+        boolean buildVaporator = (this.vaporator == null || this.vaporator.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_VAP_MIN_DIST);
 
-        if (!buildDesign && !buildFulfillment) return MinerState.TRAVEL;
+        if (!buildDesign && !buildFulfillment && !buildNetGun && !buildVaporator) return MinerState.TRAVEL;
 
         // Scan the nearby surroundings for a good place within a few steps of us to build our building.
         if (this.pathfinder == null) {
@@ -413,9 +425,14 @@ public class Miner extends Unit {
         if (this.pathfinder.finished(rc.getLocation())) {
             Direction towards = rc.getLocation().directionTo(this.pathfinder.goal());
 
+            //TODO: Decide which building to build partially based on what enemies miner can see
             RobotType typeToBuild;
-            if (buildDesign && !buildFulfillment) typeToBuild = RobotType.DESIGN_SCHOOL;
-            else if (!buildDesign && buildFulfillment) typeToBuild = RobotType.FULFILLMENT_CENTER;
+            if (buildDesign && rc.getLocation().distanceSquaredTo(hq) < 60) typeToBuild = RobotType.DESIGN_SCHOOL;
+            else if (buildFulfillment && rc.getLocation().distanceSquaredTo(hq) < 60) typeToBuild = RobotType.FULFILLMENT_CENTER;
+            else if (buildVaporator) typeToBuild = RobotType.VAPORATOR;
+            else if (buildDesign) typeToBuild = RobotType.DESIGN_SCHOOL;
+            else if (buildFulfillment) typeToBuild = RobotType.FULFILLMENT_CENTER;
+            else if (buildNetGun) typeToBuild = RobotType.NET_GUN;
             else typeToBuild = (this.rng.nextDouble() < Config.FULFILLMENT_CENTER_PROB) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
 
             if (rc.canBuildRobot(typeToBuild, towards))
