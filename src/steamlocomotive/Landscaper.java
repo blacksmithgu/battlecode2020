@@ -513,7 +513,10 @@ public class Landscaper extends Unit {
      */
     private int terraformHeight(RobotController rc) {
         // Make this dynamic w/ time using the current water level. All landscapers should share this value.
-        return 5;
+        if (rc.getRoundNum() < 500) return 5;
+        else if (rc.getRoundNum() < 1000) return 10;
+        else if (rc.getRoundNum() < 1500) return 20;
+        else return 50;
     }
 
     /**
