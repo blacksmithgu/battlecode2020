@@ -147,7 +147,7 @@ public class Landscaper extends Unit {
      */
     public LandscaperState buildWall(RobotController rc) throws GameActionException {
         // Start equalizing if all landscapers have arrived.
-        if (comms.isWallDone(rc)) equalize = true;
+        if (comms.isWallDone(rc) || rc.getRoundNum() > Config.EQUALITY_ROUND) equalize = true;
 
         // Dig from the HQ if it is being buried, otherwise dig off-lattice.
         Direction digFrom = smartDigDirection(rc);
@@ -170,23 +170,7 @@ public class Landscaper extends Unit {
                     height = adjHeight;
                 }
             }
-        } else {
-            // Added this so that in case we never have all landscapers arrive, we still build a full wall
-            // The 50 height difference requirement is so that the first few landscapers don't make it hard for
-            // the remaining wall-builders to get to their spots
-            for (Direction dir : Direction.allDirections()) {
-                if (dir == Direction.CENTER) continue;
-                MapLocation loc = rc.getLocation().add(dir);
-                if (!rc.canSenseLocation(loc)) continue;
-
-                int adjHeight = rc.senseElevation(loc);
-                if (this.isWallTile(loc) && adjHeight < height - 50) {
-                    depositLoc = dir;
-                    height = adjHeight;
-                }
-            }
         }
-
         if (rc.canDepositDirt(depositLoc)) {
             rc.depositDirt(depositLoc);
         } else {

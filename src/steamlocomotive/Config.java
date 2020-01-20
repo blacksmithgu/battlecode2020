@@ -93,6 +93,7 @@ public class Config {
      * The min squared distance we build buildings away from the HQ.
      */
     public static final int BUILD_BUILDING_MIN_HQ_DIST = 9;
+    public static final int EQUALITY_ROUND = 350;
 
     // LANDSCAPER CONFIG
 
