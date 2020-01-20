@@ -209,8 +209,10 @@ public class Landscaper extends Unit {
 
         // If we are immediately adjacent to the wall tile we want to be on, but cannot reach it due to a height
         // difference, go ahead and elevate ourselves via digging.
-        // TODO: Only do this if there is not a closer landscaper.
-        if (rc.getLocation().distanceSquaredTo(this.pathfinder.goal()) <= 2) {
+        //TODO: dig if we are farther away than this?
+        Direction toGoal = rc.getLocation().directionTo(this.pathfinder.goal());
+        RobotInfo robotToGoal = rc.senseRobotAtLocation(rc.getLocation().add(toGoal));
+        if (rc.getLocation().distanceSquaredTo(this.pathfinder.goal()) <= 2 && rc.senseElevation(rc.getLocation()) + GameConstants.MAX_DIRT_DIFFERENCE < rc.senseElevation(this.pathfinder.goal()) && (robotToGoal == null || robotToGoal.type != RobotType.LANDSCAPER)) {
             // Move onto the wall if we are high enough.
             Direction direct = rc.getLocation().directionTo(this.pathfinder.goal());
             if (rc.canMove(direct)) {

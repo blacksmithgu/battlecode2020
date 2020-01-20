@@ -154,6 +154,17 @@ public class Miner extends Unit {
             }
             this.soups.update(rc, soupLoc, this.rng);
         }
+
+        // Check for enemy drones and try to build a net gun
+        // TODO: actually integrate this into the code rather than have it here
+        if(rc.getTeamSoup() >= Config.MIN_SOUP_NET_GUN && Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam().opponent()).distance < GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
+            for(Direction dir: Direction.allDirections()) {
+                if(rc.canBuildRobot(RobotType.NET_GUN, dir)) {
+                    rc.buildRobot(RobotType.NET_GUN, dir);
+                    break;
+                }
+            }
+        }
     }
 
     /** Implements roaming behavior, where the miner roams until it finds soup somewhere. */
