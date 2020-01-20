@@ -2,8 +2,6 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.util.Map;
-
 public class Bitconnect {
 
     // width of the map
@@ -162,7 +160,6 @@ public class Bitconnect {
                 if(block != null) {
                     HQSurroundings surroundings = HQSurroundings.fromMessage(block, ourTeam);
                     if(surroundings!=null) {
-                        System.out.println("Our HQ is at: " + surroundings.hq);
                         this.ourHQSurroundings = surroundings;
                     }
                 }

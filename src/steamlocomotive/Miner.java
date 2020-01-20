@@ -514,6 +514,6 @@ public class Miner extends Unit {
             if (robot != null && robot.type == RobotType.LANDSCAPER) numDiggers++;
         }
 
-        return numDiggers >= 6;
+        return numDiggers >= 4;
     }
 }
