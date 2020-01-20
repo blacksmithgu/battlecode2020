@@ -8,10 +8,17 @@ public class DesignSchool extends Unit {
         super(id);
     }
 
-    int numLandscapersBuilt = 0;
-    boolean isNearHQ = false;
-    Team schoolTeam;
-    MapLocation myHQLoc;
+    private int numLandscapersBuilt = 0;
+    // Tracks whether is within 48 square distance of HQ
+    private boolean isNearHQ = false;
+    // The design school's team
+    private Team schoolTeam;
+    // The location of our HQ
+    private MapLocation friendlyHQLoc = null;
+    // Comms object
+    private Bitconnect comms;
+    // locations of where to build the wall, transmitted by HQ (we need this because it contains friendly HQ location)
+    private Bitconnect.HQSurroundings wallLocations;
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
@@ -26,7 +33,7 @@ public class DesignSchool extends Unit {
         // Design school builds landscapers early, but not a lot
         // Similarly to drones, this should be insurance against rush.
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
-        if (rc.getRoundNum() < 100 && numLandscapersBuilt < 2) {
+        if (rc.getRoundNum() < 150 && numLandscapersBuilt < 2) {
             for (Direction adj : Direction.allDirections()) {
                 if (adj == Direction.CENTER) continue;
                 if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
@@ -37,16 +44,19 @@ public class DesignSchool extends Unit {
             }
         }
 
+        // TODO:  Ensure that there won't be multiple design schools doing this
+        // (Probably by looking out for HQ's "all done" sign)
+
         // The design school near the HQ builds 8 landscapers quickly, so that the wall gets up as fast as possible
         // Only does this building every other turn so that the first design school can get out its early drones
-        if (isNearHQ && numLandscapersBuilt < 8 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost + RobotType.REFINERY.cost && currentRound % 2 == myID % 2) {
+        if (isNearHQ && numLandscapersBuilt < 8 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost  && currentRound % 2 == myID % 2) {
             buildLandscaperBasic(rc);
             numLandscapersBuilt++;
         }
 
         // If the HQ has dirt on it and friendly landscapers don't outnumber enemy landscapers, build landscaper
-        if (isNearHQ && rc.canSenseLocation(myHQLoc)) {
-            if (rc.getTeamSoup() >= RobotType.LANDSCAPER.cost && hqNeedsHelp(rc, myHQLoc, nearbyRobots, schoolTeam)) {
+        if (isNearHQ && rc.canSenseLocation(friendlyHQLoc)) {
+            if (rc.getTeamSoup() >= RobotType.LANDSCAPER.cost && hqNeedsHelp(rc, friendlyHQLoc, nearbyRobots, schoolTeam)) {
                     buildLandscaperBasic(rc);
                     numLandscapersBuilt++;
                     return;
@@ -132,11 +142,23 @@ public class DesignSchool extends Unit {
         return false;
     }
 
+    //There are cases where the first DesignSchool is next to a refinery, not HQ, so "build 8 miners for wall" doesn't trigger
     public void onCreation(RobotController rc) throws GameActionException {
-        Utils.ClosestRobot heq = Utils.closestRobot(rc, RobotType.HQ, rc.getTeam());
-        if (heq.robot != null) {
-            isNearHQ = true;
-            myHQLoc = heq.robot.location;
+        comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
+        wallLocations = comms.getWallLocations(rc);
+        friendlyHQLoc = wallLocations.hq;
+        if (friendlyHQLoc != null) {
+            if (rc.getLocation().distanceSquaredTo(friendlyHQLoc) <= 48) {
+                isNearHQ = true;
+            }
+        }
+        else if (friendlyHQLoc == null) {
+            // If friendlyHQLoc == null, then comms have malfunctioned in some way, so resort to own vision
+            Utils.ClosestRobot heq = Utils.closestRobot(rc, RobotType.HQ, rc.getTeam());
+            if (heq.robot != null) {
+                isNearHQ = true;
+                friendlyHQLoc = heq.robot.location;
+            }
         }
     }
 }

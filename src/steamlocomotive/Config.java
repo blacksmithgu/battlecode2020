@@ -97,4 +97,10 @@ public class Config {
     // LANDSCAPER CONFIG
 
     public static final int MAX_TERRAFORM_HEIGHT_DIFF = 10;
+
+    /**
+     * If a design school is this distance or closer to friendly HQ, it considers itself "close" to it
+     * (Setting to 48 is the same as a Manhattan distance of 6, compared to design school's vision of 4)
+     */
+    public static final int DESIGN_SCHOOL_HQ_CLOSE_MAX_DIST = 48;
 }
