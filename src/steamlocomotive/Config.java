@@ -85,9 +85,19 @@ public class Config {
     public static final int BUILD_BUILDING_ROAM_DISTANCE = 3;
 
     /**
-     * The minimum distance buildings of the same type should be from each other.
+     * The minimum distance buildings (except for vaporators and netguns) of the same type should be from each other.
      */
     public static final int BUILD_BUILDING_MIN_DIST = 64;
+
+    /**
+     * The minimum distance netguns should be from each other
+     */
+    public static final int BUILD_NET_GUN_MIN_DIST = 50;
+
+    /**
+     * The minimum distance vaporators should be from each other
+     */
+    public static final int BUILD_VAP_MIN_DIST = 20;
 
     /**
      * The min squared distance we build buildings away from the HQ.
