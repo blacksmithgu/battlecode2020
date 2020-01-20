@@ -363,6 +363,7 @@ public class Landscaper extends Unit {
         int ourHeight = rc.senseElevation(rc.getLocation());
         int terraHeight = this.terraformHeight(rc);
 
+        double averageAdjacentElevation = 0;
         // If we are not on the checkerboard, get on the checkerboard.
         if (!onLattice(rc.getLocation())) {
             for (Direction dir : Direction.cardinalDirections()) {
@@ -372,11 +373,32 @@ public class Landscaper extends Unit {
                     rc.move(dir);
                     return LandscaperState.TERRAFORM;
                 }
+                averageAdjacentElevation+= rc.senseElevation(loc);
             }
 
-            // We can't make any cardinal moves. Just explode for now out of pure laziness.
-            // TODO: Terraform our way up.
-            rc.disintegrate();
+            averageAdjacentElevation/=4;
+
+            boolean tooHigh = averageAdjacentElevation < rc.senseElevation(rc.getLocation());
+            if(rc.getDirtCarrying() > 0 && !tooHigh) {
+                rc.depositDirt(Direction.CENTER);
+            } else if(rc.getDirtCarrying() == 0 && !tooHigh) {
+                for(Direction dir: Direction.cardinalDirections()) {
+                    if(rc.canDigDirt(dir.rotateRight())) {
+                        rc.digDirt(dir.rotateRight());
+                        break;
+                    }
+                }
+            } else if(rc.getDirtCarrying() > 0 && tooHigh) {
+                Direction minDirt = Direction.CENTER;
+                for(Direction direction: Direction.cardinalDirections()) {
+                    if(rc.canDigDirt(direction) && rc.senseElevation(rc.getLocation().add(direction)) <= rc.senseElevation(rc.getLocation().add(minDirt))){
+                        minDirt = direction;
+                    }
+                }
+                rc.depositDirt(minDirt);
+            } else {
+                rc.digDirt(Direction.CENTER);
+            }
             return LandscaperState.TERRAFORM;
         }
 
