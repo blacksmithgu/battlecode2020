@@ -169,8 +169,23 @@ public class Miner extends Unit {
     public void checkForSelfDefense(RobotController rc) throws GameActionException {
         if (rc.getTeamSoup() < Config.MIN_SOUP_NET_GUN) return;
 
+        Utils.ClosestRobot closestDrone = Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam().opponent());
+
+        if(closestDrone.robot == null) {
+            return;
+        }
+
+        RobotInfo[] nearbyRobots = rc.senseNearbyRobots(closestDrone.robot.location, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED, rc.getTeam());
+        boolean foundNetgun = false;
+        for(RobotInfo info: nearbyRobots) {
+            if(info.type == RobotType.NET_GUN) {
+                foundNetgun = true;
+                break;
+            }
+        }
+
         // Check for enemy drones and try to build a net gun
-        if(Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam().opponent()).distance <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
+        if(!foundNetgun && closestDrone.distance <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
             for(Direction dir: Direction.allDirections()) {
                 if(rc.canBuildRobot(RobotType.NET_GUN, dir)) {
                     rc.buildRobot(RobotType.NET_GUN, dir);

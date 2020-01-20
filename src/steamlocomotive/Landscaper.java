@@ -280,9 +280,15 @@ public class Landscaper extends Unit {
         if (info.length == 0) return LandscaperState.TERRAFORM;
         boolean canBury = false;
 
+        boolean closeToEnemyHQ = false;
+        if(enemyHq != null) {
+            closeToEnemyHQ = rc.getLocation().distanceSquaredTo(enemyHq) < 18;
+        }
+
+
         RobotInfo closestBuilding = null;
         for (RobotInfo robot : info) {
-            boolean isTarget = (!robot.type.canMove() || (robot.type == RobotType.LANDSCAPER && rc.senseElevation(robot.location) - rc.senseElevation(rc.getLocation()) > 20));
+            boolean isTarget = (!robot.type.canMove() || (closeToEnemyHQ && robot.type == RobotType.LANDSCAPER && rc.senseElevation(robot.location) > 0));
             if (isTarget && (rc.getLocation().distanceSquaredTo(robot.location) <= 2)) {
                 closestBuilding = robot;
                 canBury = true;
@@ -292,23 +298,20 @@ public class Landscaper extends Unit {
             }
         }
 
-        // TODO: fix the bug where there is two buildings on opposite sides
         if(canBury && closestBuilding.type != RobotType.LANDSCAPER) {
             if(rc.getDirtCarrying() > 0) {
                 rc.depositDirt(rc.getLocation().directionTo(closestBuilding.location));
-                return LandscaperState.BURY_ENEMY;
             } else {
-                rc.digDirt(rc.getLocation().directionTo(closestBuilding.location).opposite());
-                return LandscaperState.BURY_ENEMY;
+                rc.digDirt(smartDigDirection(rc));
             }
+            return LandscaperState.BURY_ENEMY;
         } else if (canBury) {
             if(rc.getDirtCarrying() > 0) {
-                rc.depositDirt(rc.getLocation().directionTo(closestBuilding.location).opposite());
-                return LandscaperState.BURY_ENEMY;
+                rc.depositDirt(Direction.CENTER);
             } else {
                 rc.digDirt(rc.getLocation().directionTo(closestBuilding.location));
-                return LandscaperState.BURY_ENEMY;
             }
+            return LandscaperState.BURY_ENEMY;
         }
 
         if(!isEnemyBuildingPathfinder) {
