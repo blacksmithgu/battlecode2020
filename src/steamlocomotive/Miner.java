@@ -61,11 +61,19 @@ public class Miner extends Unit {
         // Update comms so we are aware of important global state.
         comms.updateForTurn(rc);
 
+        Utils.print(state.toString());
+
         // Update soup and unit knowledge by scanning surroundings.
         this.scanSurroundings(rc);
 
         // Emergency self-defense checks (like netguns).
         this.checkForSelfDefense(rc);
+
+        // Sorry miner, you were in the way :(
+        if (wallStarted(rc, rc.getLocation()) && comms.ourHQSurroundings != null && comms.ourHQSurroundings.isWall(rc.getLocation()) && rc.senseElevation(rc.getLocation()) >= 30) {
+            rc.disintegrate();
+            return;
+        }
 
         // TODO: Cleanup HQ finding logic.
         if (foundHQ == false) {

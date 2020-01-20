@@ -56,6 +56,8 @@ public class Landscaper extends Unit {
         // Check the blockchain for useful information.
         comms.updateForTurn(rc);
 
+        Utils.print(state.toString());
+
         if (foundHQ == false) {
             if (comms.getEnemyBaseLocation() != null) {
                 this.enemyHq = comms.getEnemyBaseLocation();
@@ -70,12 +72,22 @@ public class Landscaper extends Unit {
         while (rc.isReady()) {
             LandscaperState next;
             switch (this.state) {
-                case BUILD_WALL: next = this.buildWall(rc); break;
-                case MOVE_TO_WALL: next = this.moveToWall(rc); break;
-                case BURY_ENEMY: next = this.buryEnemy(rc); break;
-                case UNBURY_ALLY: next = this.unburyAlly(rc); break;
+                case BUILD_WALL:
+                    next = this.buildWall(rc);
+                    break;
+                case MOVE_TO_WALL:
+                    next = this.moveToWall(rc);
+                    break;
+                case BURY_ENEMY:
+                    next = this.buryEnemy(rc);
+                    break;
+                case UNBURY_ALLY:
+                    next = this.unburyAlly(rc);
+                    break;
                 default:
-                case TERRAFORM: next = this.terraform(rc); break;
+                case TERRAFORM:
+                    next = this.terraform(rc);
+                    break;
             }
 
             // Reset transient miner state.
@@ -120,10 +132,10 @@ public class Landscaper extends Unit {
         // If we are next to an enemy building, we should be using our actions to dump dirt on it
         Utils.ClosestRobot closestEnemyBuilding = Utils.closestRobot(rc, info -> !info.type.canMove(), rc.getTeam().opponent());
         Direction digDirection = smartDigDirection(rc);
-        if(closestEnemyBuilding.distance <=2) {
-            if(rc.getDirtCarrying() > 0) {
+        if (closestEnemyBuilding.distance <= 2) {
+            if (rc.getDirtCarrying() > 0) {
                 rc.depositDirt(rc.getLocation().directionTo(closestEnemyBuilding.robot.location));
-            } else if(rc.canDigDirt(digDirection)){
+            } else if (rc.canDigDirt(digDirection)) {
                 rc.digDirt(digDirection);
             }
         }
@@ -158,8 +170,7 @@ public class Landscaper extends Unit {
                     height = adjHeight;
                 }
             }
-        }
-        else {
+        } else {
             // Added this so that in case we never have all landscapers arrive, we still build a full wall
             // The 50 height difference requirement is so that the first few landscapers don't make it hard for
             // the remaining wall-builders to get to their spots
@@ -195,32 +206,9 @@ public class Landscaper extends Unit {
         // If the wall is occupied, go do something more useful.
         if (this.comms.isWallDone(rc)) return LandscaperState.TERRAFORM;
 
-        // Clear the existing pathfinder if it's space is occupied.
-        if (this.pathfinder != null && rc.canSenseLocation(this.pathfinder.goal()) && rc.isLocationOccupied(this.pathfinder.goal()))
-            this.pathfinder = null;
-
         // Create a pathfinder to the first open wall tile.
         if (this.pathfinder == null) {
-            MapLocation target = null;
-            int bestDistance = Integer.MAX_VALUE;
-            for (int index = 0; index < wallLocations.adjacentWallSpots.length; index++) {
-                MapLocation wall = wallLocations.adjacentWallSpots[index];
-                if(rc.canSenseLocation(wall)) {
-                    RobotInfo robotOnWall = rc.senseRobotAtLocation(wall);
-                    if (robotOnWall != null && robotOnWall.type == RobotType.LANDSCAPER) {
-                        continue;
-                    }
-                }
-
-                int dist = rc.getLocation().distanceSquaredTo(wall);
-                if (dist < bestDistance) {
-                    bestDistance = dist;
-                    target = wall;
-                }
-            }
-
-            if (target == null) return LandscaperState.TERRAFORM;
-            this.pathfinder = this.newPathfinder(target, false);
+            this.pathfinder = this.newPathfinder(hq, false);
             isEnemyBuildingPathfinder = false;
         }
 
@@ -229,7 +217,9 @@ public class Landscaper extends Unit {
         //TODO: dig if we are farther away than this?
         Direction toGoal = rc.getLocation().directionTo(this.pathfinder.goal());
         RobotInfo robotToGoal = rc.senseRobotAtLocation(rc.getLocation().add(toGoal));
-        if (rc.getLocation().distanceSquaredTo(this.pathfinder.goal()) <= 2 && rc.senseElevation(rc.getLocation()) + GameConstants.MAX_DIRT_DIFFERENCE < rc.senseElevation(this.pathfinder.goal()) && (robotToGoal == null || robotToGoal.type != RobotType.LANDSCAPER)) {
+        if (rc.getLocation().distanceSquaredTo(this.pathfinder.goal()) <= 8 &&
+                rc.senseElevation(rc.getLocation()) + GameConstants.MAX_DIRT_DIFFERENCE < rc.senseElevation(rc.getLocation().add(rc.getLocation().directionTo(this.pathfinder.goal()))) &&
+                (robotToGoal == null || robotToGoal.type != RobotType.LANDSCAPER)) {
             // Move onto the wall if we are high enough.
             Direction direct = rc.getLocation().directionTo(this.pathfinder.goal());
             if (rc.canMove(direct)) {
@@ -269,7 +259,7 @@ public class Landscaper extends Unit {
         boolean canBury = false;
 
         boolean closeToEnemyHQ = false;
-        if(enemyHq != null) {
+        if (enemyHq != null) {
             closeToEnemyHQ = rc.getLocation().distanceSquaredTo(enemyHq) < 18;
         }
 
@@ -286,15 +276,15 @@ public class Landscaper extends Unit {
             }
         }
 
-        if(canBury && closestBuilding.type != RobotType.LANDSCAPER) {
-            if(rc.getDirtCarrying() > 0) {
+        if (canBury && closestBuilding.type != RobotType.LANDSCAPER) {
+            if (rc.getDirtCarrying() > 0) {
                 rc.depositDirt(rc.getLocation().directionTo(closestBuilding.location));
             } else {
                 rc.digDirt(smartDigDirection(rc));
             }
             return LandscaperState.BURY_ENEMY;
         } else if (canBury) {
-            if(rc.getDirtCarrying() > 0) {
+            if (rc.getDirtCarrying() > 0) {
                 rc.depositDirt(Direction.CENTER);
             } else {
                 rc.digDirt(rc.getLocation().directionTo(closestBuilding.location));
@@ -302,7 +292,7 @@ public class Landscaper extends Unit {
             return LandscaperState.BURY_ENEMY;
         }
 
-        if(!isEnemyBuildingPathfinder) {
+        if (!isEnemyBuildingPathfinder) {
             pathfinder = newPathfinder(closestBuilding.location, true);
             isEnemyBuildingPathfinder = true;
         }
@@ -361,25 +351,25 @@ public class Landscaper extends Unit {
                     rc.move(dir);
                     return LandscaperState.TERRAFORM;
                 }
-                averageAdjacentElevation+= rc.senseElevation(loc);
+                averageAdjacentElevation += rc.senseElevation(loc);
             }
 
-            averageAdjacentElevation/=4;
+            averageAdjacentElevation /= 4;
 
             boolean tooHigh = averageAdjacentElevation < rc.senseElevation(rc.getLocation());
-            if(rc.getDirtCarrying() > 0 && !tooHigh) {
+            if (rc.getDirtCarrying() > 0 && !tooHigh) {
                 rc.depositDirt(Direction.CENTER);
-            } else if(rc.getDirtCarrying() == 0 && !tooHigh) {
-                for(Direction dir: Direction.cardinalDirections()) {
-                    if(rc.canDigDirt(dir.rotateRight())) {
+            } else if (rc.getDirtCarrying() == 0 && !tooHigh) {
+                for (Direction dir : Direction.cardinalDirections()) {
+                    if (rc.canDigDirt(dir.rotateRight())) {
                         rc.digDirt(dir.rotateRight());
                         break;
                     }
                 }
-            } else if(rc.getDirtCarrying() > 0 && tooHigh) {
+            } else if (rc.getDirtCarrying() > 0 && tooHigh) {
                 Direction minDirt = Direction.CENTER;
-                for(Direction direction: Direction.cardinalDirections()) {
-                    if(rc.canDigDirt(direction) && rc.senseElevation(rc.getLocation().add(direction)) <= rc.senseElevation(rc.getLocation().add(minDirt))){
+                for (Direction direction : Direction.cardinalDirections()) {
+                    if (rc.canDigDirt(direction) && rc.senseElevation(rc.getLocation().add(direction)) <= rc.senseElevation(rc.getLocation().add(minDirt))) {
                         minDirt = direction;
                     }
                 }
@@ -492,19 +482,6 @@ public class Landscaper extends Unit {
      */
     private boolean onLattice(MapLocation loc) {
         return (loc.x % 2 == 0) || (loc.y % 2 == 0);
-    }
-
-    /**
-     * Returns true if this tile is along the line from our HQ to the enemy HQ.
-     */
-    private boolean isImportantTile(RobotController rc, MapLocation loc, int dist) throws GameActionException {
-        if (loc.x % 2 == 0 && loc.y % 2 == 0) return false;
-        if (rc.getLocation().distanceSquaredTo(hq) < 20) return false;
-
-        int x0 = loc.x, y0 = loc.y, x1 = hq.x, x2 = enemyHq.x, y1 = hq.y, y2 = enemyHq.y;
-        double top = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
-        double bottom = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
-        return top / bottom < dist;
     }
 
     /**

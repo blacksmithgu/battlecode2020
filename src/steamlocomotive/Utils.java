@@ -177,4 +177,10 @@ public class Utils {
             }
         }
     }
+
+    public static void print(String string) {
+        if(Config.DEBUG) {
+            System.out.println(string);
+        }
+    }
 }
