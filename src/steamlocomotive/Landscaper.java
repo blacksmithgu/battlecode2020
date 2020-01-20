@@ -2,6 +2,8 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
+import java.io.Closeable;
+
 public class Landscaper extends Unit {
 
     /**
@@ -124,6 +126,17 @@ public class Landscaper extends Unit {
             if (enemyHqSymmetryIdx == 2) {
                 comms.setEnemyBaseLocation(this.enemyHq);
                 foundHQ = true;
+            }
+        }
+
+        // If we are next to an enemy building, we should be using our actions to dump dirt on it
+        Utils.ClosestRobot closestEnemyBuilding = Utils.closestRobot(rc, info -> !info.type.canMove(), rc.getTeam().opponent());
+        Direction digDirection = smartDigDirection(rc);
+        if(closestEnemyBuilding.distance <=2) {
+            if(rc.getDirtCarrying() > 0) {
+                rc.depositDirt(rc.getLocation().directionTo(closestEnemyBuilding.robot.location));
+            } else if(rc.canDigDirt(digDirection)){
+                rc.digDirt(digDirection);
             }
         }
 
