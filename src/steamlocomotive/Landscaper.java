@@ -171,6 +171,22 @@ public class Landscaper extends Unit {
                 }
             }
         }
+        else {
+            // Added this so that in case we never have all landscapers arrive, we still build a full wall
+            // The 50 height difference requirement is so that the first few landscapers don't make it hard for
+            // the remaining wall-builders to get to their spots
+            for (Direction dir : Direction.allDirections()) {
+                if (dir == Direction.CENTER) continue;
+                MapLocation loc = rc.getLocation().add(dir);
+                if (!rc.canSenseLocation(loc)) continue;
+
+                int adjHeight = rc.senseElevation(loc);
+                if (this.isWallTile(loc) && adjHeight < height - 50) {
+                    depositLoc = dir;
+                    height = adjHeight;
+                }
+            }
+        }
 
         if (rc.canDepositDirt(depositLoc)) {
             rc.depositDirt(depositLoc);
