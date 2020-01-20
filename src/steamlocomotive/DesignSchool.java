@@ -50,7 +50,7 @@ public class DesignSchool extends Unit {
         // The design school near the HQ builds 8 landscapers quickly, so that the wall gets up as fast as possible
         // Only does this building every other turn so that the first design school can get out its early drones
         // Added +50 so this doesn't kill our early econ and prevent any drone building
-        if (isNearHQ && numLandscapersBuilt < 8 && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost + 50) {
+        if (isNearHQ && numLandscapersBuilt < 8 && rc.getTeamSoup() >= RobotType.REFINERY.cost + 20) {
             buildLandscaperBasic(rc);
             numLandscapersBuilt++;
             return;
