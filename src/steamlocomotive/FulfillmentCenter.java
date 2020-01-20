@@ -48,21 +48,7 @@ public class FulfillmentCenter extends Unit {
         // Ramps up production rate based on the amount of soup. Over 2000 soup, it makes a drone every turn.
         // TODO: Make the round cutoffs and rates into easily-twiddled constants in Config
         if (teamSoup >= RobotType.DELIVERY_DRONE.cost) {
-            if (teamSoup > 500 && currentRound % 32 == myID % 32) {
-                buildDroneBasic(rc);
-            }
-            else if (teamSoup > 1000 && currentRound % 16 == myID % 16) {
-                buildDroneBasic(rc);
-            }
-            else if (teamSoup > 1500 && currentRound % 8 == myID % 8) {
-                buildDroneBasic(rc);
-            }
-            else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
-                buildDroneBasic(rc);
-            }
-            else if (teamSoup >= 3000){
-                buildDroneBasic(rc);
-            }
+            normalProduction(rc, teamSoup, myID, currentRound);
         }
         return;
     }
@@ -180,6 +166,72 @@ public class FulfillmentCenter extends Unit {
         }
     }
 
+    public boolean doesModulusWork(int modulus, int myID, int currentRound) {
+        if (modulus == 0) {
+            return true;
+        }
+        else if (myID % modulus == currentRound % modulus) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    public void productionTemplate(RobotController rc, int teamSoup, int myID, int currentRound, int rate, boolean faster) throws GameActionException{
+        if (teamSoup >= RobotType.DELIVERY_DRONE.cost) {
+            if (!faster) {
+                if (teamSoup > 500) {
+                    int modulus = 32 * rate;
+                    if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
+                } else if (teamSoup > 1000) {
+                    int modulus = 16 * rate;
+                    if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
+                } else if (teamSoup > 1500) {
+                    int modulus = 8 * rate;
+                    if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
+                } else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
+                    int modulus = 2 * rate;
+                    if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
+                } else if (teamSoup >= 3000) {
+                    buildDroneBasic(rc);
+                }
+            }
+            else if (faster) {
+                if (teamSoup > 500) {
+                    int modulus = 32 / rate;
+                    if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
+                } else if (teamSoup > 1000) {
+                    int modulus = 16 / rate;
+                    if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
+                } else if (teamSoup > 1500) {
+                    int modulus = 8 / rate;
+                    if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
+                } else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
+                    int modulus = 2 / rate;
+                    if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
+                } else if (teamSoup >= 3000) {
+                    buildDroneBasic(rc);
+                }
+            }
+        }
+        return;
+    }
+
+    public void halfProduction(RobotController rc, int teamSoup, int myID, int currentRound) throws GameActionException {
+        productionTemplate(rc, teamSoup, myID, currentRound, 2, false);
+        return;
+    }
+
+    public void doubleProduction(RobotController rc, int teamSoup, int myID, int currentRound) throws GameActionException {
+        productionTemplate(rc, teamSoup, myID, currentRound, 2, true);
+        return;
+    }
+
+    public void normalProduction(RobotController rc, int teamSoup, int myID, int currentRound) throws GameActionException {
+        productionTemplate(rc, teamSoup, myID, currentRound, 1, false);
+        return;
+    }
 
     public void onCreation(RobotController rc) throws GameActionException {
         /*
