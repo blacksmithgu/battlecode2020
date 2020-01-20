@@ -54,8 +54,12 @@ public class FulfillmentCenter extends Unit {
         // This is the typical drone production behavior
         // Ramps up production rate based on the amount of soup. Over 2000 soup, it makes a drone every turn.
         // TODO: Make the round cutoffs and rates into easily-twiddled constants in Config
-        if (teamSoup >= RobotType.DELIVERY_DRONE.cost) {
+        if (teamSoup >= RobotType.DELIVERY_DRONE.cost && numDronesBuilt <= 5) {
             normalProduction(rc, teamSoup, myID, currentRound);
+            numDronesBuilt++;
+        }
+        else if (teamSoup >= RobotType.DELIVERY_DRONE.cost && numDronesBuilt > 5) {
+            halfProduction(rc, teamSoup, myID, currentRound);
             numDronesBuilt++;
         }
         return;
