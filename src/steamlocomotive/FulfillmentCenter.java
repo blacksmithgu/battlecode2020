@@ -38,14 +38,14 @@ public class FulfillmentCenter extends Unit {
         // These initial two drones are meant to preempt a rush
         // The isOutnumbered stuff above can react to rushes, but due to the 10 turn lag on creation to activity...
         // I think it's good to be a little proactive
-        if (currentRound < 100 && numDronesBuilt <= 2 && teamSoup >= RobotType.DELIVERY_DRONE.cost + 20) {
+        if (currentRound < 100 && numDronesBuilt <= 2 && teamSoup >= RobotType.REFINERY.cost + 10) {
             buildDroneBasic(rc);
             numDronesBuilt++;
             return;
         }
 
-        // The +20 is in here so it doesn't intefere with emergency base-defending
-        if (numDronesBuilt <= 1 && teamSoup >= RobotType.DELIVERY_DRONE.cost + 20) {
+        // The +30 is in here so it doesn't interfere with the first 8 landscapers being built
+        if (numDronesBuilt <= 1 && teamSoup >= RobotType.REFINERY.cost + 30) {
             buildDroneBasic(rc);
             numDronesBuilt++;
             return;
