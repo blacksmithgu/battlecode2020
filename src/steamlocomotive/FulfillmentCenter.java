@@ -166,6 +166,8 @@ public class FulfillmentCenter extends Unit {
         }
     }
 
+
+    // Used in productionTemplate for checking whether should produce on curretnRound given rate modulus
     public boolean doesModulusWork(int modulus, int myID, int currentRound) {
         if (modulus == 0) {
             return true;
@@ -178,39 +180,40 @@ public class FulfillmentCenter extends Unit {
         }
     }
 
+    // Can call to produce at various rates, e.g. standard (rate=1), half, or double
     public void productionTemplate(RobotController rc, int teamSoup, int myID, int currentRound, int rate, boolean faster) throws GameActionException{
         if (teamSoup >= RobotType.DELIVERY_DRONE.cost) {
             if (!faster) {
-                if (teamSoup > 500) {
-                    int modulus = 32 * rate;
+                if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_ONE) {
+                    int modulus = Config.DRONE_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > 1000) {
-                    int modulus = 16 * rate;
+                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_TWO) {
+                    int modulus = Config.DRONE_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > 1500) {
-                    int modulus = 8 * rate;
+                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_THREE) {
+                    int modulus = Config.DRONE_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
-                    int modulus = 2 * rate;
+                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_FOUR) {
+                    int modulus = Config.DRONE_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup >= 3000) {
+                } else if (teamSoup >= Config.DRONE_PROD_CHANGE_ROUND_FIVE) {
                     buildDroneBasic(rc);
                 }
             }
             else if (faster) {
-                if (teamSoup > 500) {
-                    int modulus = 32 / rate;
+                if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_ONE) {
+                    int modulus = Config.DRONE_PROD_RATE_ONE / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > 1000) {
-                    int modulus = 16 / rate;
+                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_TWO) {
+                    int modulus = Config.DRONE_PROD_RATE_TWO / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > 1500) {
-                    int modulus = 8 / rate;
+                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_THREE) {
+                    int modulus = Config.DRONE_PROD_RATE_THREE / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
-                    int modulus = 2 / rate;
+                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_FOUR ) {
+                    int modulus = Config.DRONE_PROD_RATE_FOUR / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup >= 3000) {
+                } else if (teamSoup >= Config.DRONE_PROD_CHANGE_ROUND_FIVE) {
                     buildDroneBasic(rc);
                 }
             }
@@ -218,16 +221,19 @@ public class FulfillmentCenter extends Unit {
         return;
     }
 
+    // Produces drones at half the standard rate
     public void halfProduction(RobotController rc, int teamSoup, int myID, int currentRound) throws GameActionException {
         productionTemplate(rc, teamSoup, myID, currentRound, 2, false);
         return;
     }
 
+    //Produces drones at double the standard rate
     public void doubleProduction(RobotController rc, int teamSoup, int myID, int currentRound) throws GameActionException {
         productionTemplate(rc, teamSoup, myID, currentRound, 2, true);
         return;
     }
 
+    // Produces drones at normal rate, i.e. feeding rate=1 into productionTemplate
     public void normalProduction(RobotController rc, int teamSoup, int myID, int currentRound) throws GameActionException {
         productionTemplate(rc, teamSoup, myID, currentRound, 1, false);
         return;

@@ -150,36 +150,36 @@ public class DesignSchool extends Unit {
     public void productionTemplate(RobotController rc, int teamSoup, int myID, int currentRound, int rate, boolean faster) throws GameActionException{
         if (teamSoup >= RobotType.LANDSCAPER.cost) {
             if (!faster) {
-                if (teamSoup > 500) {
-                    int modulus = 32 * rate;
+                if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_ONE) {
+                    int modulus = Config.LANDSCAPER_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup > 1000) {
-                    int modulus = 16 * rate;
+                } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_TWO) {
+                    int modulus = Config.LANDSCAPER_PROD_RATE_TWO * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup > 1500) {
-                    int modulus = 8 * rate;
+                } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_THREE) {
+                    int modulus = Config.LANDSCAPER_PROD_RATE_THREE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
-                    int modulus = 2 * rate;
+                } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_FOUR) {
+                    int modulus = Config.LANDSCAPER_PROD_RATE_FOUR * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup >= 3000) {
+                } else if (teamSoup >= Config.LANDSCAPER_PROD_CHANGE_ROUND_FIVE) {
                     buildLandscaperBasic(rc);
                 }
             }
             else if (faster) {
-                if (teamSoup > 500) {
-                    int modulus = 32 / rate;
+                if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_ONE) {
+                    int modulus = Config.LANDSCAPER_PROD_RATE_ONE / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup > 1000) {
-                    int modulus = 16 / rate;
+                } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_TWO) {
+                    int modulus = Config.LANDSCAPER_PROD_RATE_TWO / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup > 1500) {
-                    int modulus = 8 / rate;
+                } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_THREE) {
+                    int modulus = Config.LANDSCAPER_PROD_RATE_THREE / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup > 2000 && currentRound % 2 == myID % 2) {
-                    int modulus = 2 / rate;
+                } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_FOUR) {
+                    int modulus = Config.LANDSCAPER_PROD_RATE_FOUR / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup >= 3000) {
+                } else if (teamSoup >= Config.LANDSCAPER_PROD_CHANGE_ROUND_FIVE) {
                     buildLandscaperBasic(rc);
                 }
             }

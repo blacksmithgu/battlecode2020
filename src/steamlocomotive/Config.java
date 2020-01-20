@@ -103,4 +103,31 @@ public class Config {
      * (Setting to 48 is the same as a Manhattan distance of 6, compared to design school's vision of 4)
      */
     public static final int DESIGN_SCHOOL_HQ_CLOSE_MAX_DIST = 48;
+
+    /**
+     * Before nth cutoff round, factory basic production for unit has nth rate
+     * After last cutoff round, will always produce if possible
+     */
+    public static final int LANDSCAPER_PROD_CHANGE_ROUND_ONE = 500;
+    public static final int LANDSCAPER_PROD_CHANGE_ROUND_TWO = 1000;
+    public static final int LANDSCAPER_PROD_CHANGE_ROUND_THREE = 1500;
+    public static final int LANDSCAPER_PROD_CHANGE_ROUND_FOUR = 2000;
+    public static final int LANDSCAPER_PROD_CHANGE_ROUND_FIVE = 3000;
+
+    public static final int LANDSCAPER_PROD_RATE_ONE = 32;
+    public static final int LANDSCAPER_PROD_RATE_TWO = 16;
+    public static final int LANDSCAPER_PROD_RATE_THREE = 8;
+    public static final int LANDSCAPER_PROD_RATE_FOUR = 2;
+
+    public static final int DRONE_PROD_CHANGE_ROUND_ONE = 500;
+    public static final int DRONE_PROD_CHANGE_ROUND_TWO = 1000;
+    public static final int DRONE_PROD_CHANGE_ROUND_THREE = 1500;
+    public static final int DRONE_PROD_CHANGE_ROUND_FOUR = 2000;
+    public static final int DRONE_PROD_CHANGE_ROUND_FIVE = 3000;
+
+    public static final int DRONE_PROD_RATE_ONE = 32;
+    public static final int DRONE_PROD_RATE_TWO = 16;
+    public static final int DRONE_PROD_RATE_THREE = 8;
+    public static final int DRONE_PROD_RATE_FOUR = 2;
+
 }
