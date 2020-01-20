@@ -14,17 +14,33 @@ import static org.mockito.Matchers.anyInt;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class BitconnectTest {
+public class ComsTest {
 
     @Test
     public void testBitsetting() {
-        assertTrue(Bitconnect.getBit(1,0));
-        assertTrue(Bitconnect.getBit(Bitconnect.setBit(0, 10, true), 10));
-        assertFalse(Bitconnect.getBit(Bitconnect.setBit(1, 0, false), 0));
+        assertTrue(Block.getBit(1,0));
+        assertTrue(Block.getBit(Block.setBit(0, 10, true), 10));
+        assertFalse(Block.getBit(Block.setBit(1, 0, false), 0));
+    }
+
+    @Test
+    public void testMultiBitSetting() {
+        int[] test = new int[10];
+        Block.setBits(test, 30, 4, 9);
+        System.out.println(Arrays.toString(test));
+        assertEquals(9, Block.getBits(test, 30, 4));
+    }
+
+    @Test
+    public void testCompressInts() {
+        int[] values = {10, 13, 99, 7};
+        int[] sizes = {4, 4, 7, 3};
+        assertEquals(Arrays.toString(values), Arrays.toString(Bitconnect.decompressBits(Bitconnect.compressInts(values, sizes), sizes)));
     }
 
     @Test
     public void TestHQWallCode() throws GameActionException {
+        /*
         RobotController rc = Mockito.mock(RobotController.class);
         Mockito.when(rc.getBlock(anyInt())).thenReturn(new Transaction[0]);
         Mockito.when(rc.getTeamSoup()).thenReturn(Integer.MAX_VALUE);
@@ -47,5 +63,6 @@ public class BitconnectTest {
 
         assertTrue(surroundings.equals(result));
         assertEquals(1, surroundings.adjacentWallSpots.length);
+         */
     }
 }

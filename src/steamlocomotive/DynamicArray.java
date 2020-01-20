@@ -1,6 +1,10 @@
 package steamlocomotive;
 
-public class DynamicArray<T> {
+import java.util.Iterator;
+import java.util.Spliterator;
+import java.util.function.Consumer;
+
+public class DynamicArray<T> implements Iterable<T>{
 
     private T[] content;
     private int size;
@@ -70,5 +74,22 @@ public class DynamicArray<T> {
             content[i] = content[i+1];
         }
         size--;
+    }
+
+    @Override
+    public Iterator iterator() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void forEach(Consumer action) {
+        for(int index = 0; index < size; index++) {
+            action.accept(content[index]);
+        }
+    }
+
+    @Override
+    public Spliterator spliterator() {
+        throw new UnsupportedOperationException();
     }
 }
