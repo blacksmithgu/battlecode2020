@@ -66,7 +66,6 @@ public class Landscaper extends Unit {
         // Update soup knowledge by scanning surroundings.
         this.scanSurroundings(rc);
 
-        System.out.println("My state is " + state);
         // Swap on current state.
         while (rc.isReady()) {
             LandscaperState next;
@@ -189,7 +188,12 @@ public class Landscaper extends Unit {
             int bestDistance = Integer.MAX_VALUE;
             for (int index = 0; index < wallLocations.adjacentWallSpots.length; index++) {
                 MapLocation wall = wallLocations.adjacentWallSpots[index];
-                if (rc.canSenseLocation(wall) && rc.isLocationOccupied(wall)) continue;
+                if(rc.canSenseLocation(wall)) {
+                    RobotInfo robotOnWall = rc.senseRobotAtLocation(wall);
+                    if (robotOnWall != null && robotOnWall.type == RobotType.LANDSCAPER) {
+                        continue;
+                    }
+                }
 
                 int dist = rc.getLocation().distanceSquaredTo(wall);
                 if (dist < bestDistance) {

@@ -41,14 +41,15 @@ public class HQ extends Unit {
         if (turn % 40 == 0) {
             boolean allDone = true;
             for (MapLocation loc : this.wall.adjacentWallSpots) {
-                if (!rc.isLocationOccupied(loc)) {
+                RobotInfo rob = rc.senseRobotAtLocation(loc);
+                if (rob == null || rob.type != RobotType.LANDSCAPER) {
                     allDone = false;
                     break;
                 }
             }
 
             if (allDone) comms.wallClaimed(rc);
-            if (this.enemyHq!=null) comms.setEnemyBaseLocation(this.enemyHq);
+            if (this.enemyHq != null) comms.setEnemyBaseLocation(this.enemyHq);
         }
 
         // Aggressively shoot down enemy drones if they roam too closely.
@@ -80,13 +81,15 @@ public class HQ extends Unit {
         }
     }
 
-    /** Build a miner close to soup; build randomly if no soup is visible. */
+    /**
+     * Build a miner close to soup; build randomly if no soup is visible.
+     */
     public void buildMiner(RobotController rc) throws GameActionException {
         // Look at all of the soup locations, and send a miner to a random soup location.
         MapLocation[] soupLocations = rc.senseNearbySoup();
 
         if (soupLocations.length == 0) {
-            soupLocations = new MapLocation[] { new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight())) };
+            soupLocations = new MapLocation[]{new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()))};
         }
 
         // Randomly choose a location to send a miner off too to die.
@@ -103,7 +106,9 @@ public class HQ extends Unit {
         }
     }
 
-    /** Compute the wall tiles around the HQ. */
+    /**
+     * Compute the wall tiles around the HQ.
+     */
     public Bitconnect.HQSurroundings computeWall(RobotController rc) {
         List<MapLocation> wallSpots = new ArrayList<>(8);
         MapLocation us = rc.getLocation();
@@ -117,14 +122,14 @@ public class HQ extends Unit {
                 // Check to see if we're in a corner, or against a wall, to see if the wall is not necessary.
                 // Check for an absolute corner of the map.
                 if (Math.abs(xOffset) + Math.abs(yOffset) == 2) {
-                    MapLocation xDir = new MapLocation(us.x + 2*xOffset, us.y);
-                    MapLocation yDir = new MapLocation(us.x, us.y + 2*yOffset);
+                    MapLocation xDir = new MapLocation(us.x + 2 * xOffset, us.y);
+                    MapLocation yDir = new MapLocation(us.x, us.y + 2 * yOffset);
                     if (!rc.onTheMap(xDir) && !rc.onTheMap(yDir)) continue;
                 }
 
                 // Check for an edge of the map that's not a corner.
                 if (Math.abs(xOffset) + Math.abs(yOffset) == 1) {
-                    MapLocation cornerDir = new MapLocation(us.x + 2*xOffset, us.y + 2*yOffset);
+                    MapLocation cornerDir = new MapLocation(us.x + 2 * xOffset, us.y + 2 * yOffset);
                     if (!rc.onTheMap(cornerDir)) continue;
                 }
 
