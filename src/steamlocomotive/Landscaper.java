@@ -158,8 +158,7 @@ public class Landscaper extends Unit {
                     height = adjHeight;
                 }
             }
-        }
-        else {
+        } else {
             // Added this so that in case we never have all landscapers arrive, we still build a full wall
             // The 50 height difference requirement is so that the first few landscapers don't make it hard for
             // the remaining wall-builders to get to their spots
@@ -492,19 +491,6 @@ public class Landscaper extends Unit {
      */
     private boolean onLattice(MapLocation loc) {
         return (loc.x % 2 == 0) || (loc.y % 2 == 0);
-    }
-
-    /**
-     * Returns true if this tile is along the line from our HQ to the enemy HQ.
-     */
-    private boolean isImportantTile(RobotController rc, MapLocation loc, int dist) throws GameActionException {
-        if (loc.x % 2 == 0 && loc.y % 2 == 0) return false;
-        if (rc.getLocation().distanceSquaredTo(hq) < 20) return false;
-
-        int x0 = loc.x, y0 = loc.y, x1 = hq.x, x2 = enemyHq.x, y1 = hq.y, y2 = enemyHq.y;
-        double top = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
-        double bottom = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
-        return top / bottom < dist;
     }
 
     /**

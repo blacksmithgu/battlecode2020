@@ -49,12 +49,16 @@ public class Bitconnect {
             this.ourTeam = ourTeam;
         }
 
+        /** Returns true if the location is a wall tile. */
+        public boolean isWall(MapLocation loc) {
+            return listContainsLocation(this.adjacentWallSpots, loc);
+        }
+
         private boolean listContainsLocation(MapLocation[] locs, MapLocation location) {
-            for(MapLocation test: locs) {
-                if(test.x == location.x && test.y == location.y) {
-                    return true;
-                }
+            for (MapLocation test : locs) {
+                if(test.x == location.x && test.y == location.y) return true;
             }
+
             return false;
         }
 
