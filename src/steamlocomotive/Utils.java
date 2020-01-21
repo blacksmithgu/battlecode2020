@@ -1,7 +1,6 @@
 package steamlocomotive;
 
 import battlecode.common.*;
-import jdk.nashorn.internal.objects.annotations.Function;
 
 import java.util.Random;
 
@@ -21,6 +20,11 @@ public class Utils {
     @FunctionalInterface
     public interface GameFunction<I, O> {
         O apply(I input) throws GameActionException;
+    }
+
+    @FunctionalInterface
+    public interface GameBiFunction<I, I2, O> {
+        O apply(I first, I2 second) throws GameActionException;
     }
 
     /** Returns true if the given direction is cardinal. 1 bytecode. Get wrecked. */
