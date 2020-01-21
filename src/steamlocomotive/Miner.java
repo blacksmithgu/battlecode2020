@@ -2,6 +2,8 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
+import java.awt.*;
+
 public class Miner extends Unit {
 
     /** The possible miner states the miner can be in. */
@@ -65,7 +67,11 @@ public class Miner extends Unit {
         this.scanSurroundings(rc);
 
         // Emergency self-defense checks (like netguns).
+        // Have ready check because miner may have built net gun or run away from drone
         this.checkForSelfDefense(rc);
+        if (!rc.isReady()) {
+            return;
+        }
 
         // Sorry miner, you were in the way :(
         if (wallStarted(rc, rc.getLocation()) && comms.ourHQSurroundings != null && comms.ourHQSurroundings.isWall(rc.getLocation()) && rc.senseElevation(rc.getLocation()) >= 30) {
@@ -183,7 +189,6 @@ public class Miner extends Unit {
 
     /** Scan for dangerous enemies and potentially reactively build defenses. */
     public void checkForSelfDefense(RobotController rc) throws GameActionException {
-        if (rc.getTeamSoup() < Config.MIN_SOUP_NET_GUN) return;
 
         Utils.ClosestRobot closestDrone = Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam().opponent());
 
@@ -201,12 +206,29 @@ public class Miner extends Unit {
         }
 
         // Check for enemy drones and try to build a net gun
-        if(!foundNetgun && closestDrone.distance <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
-            for(Direction dir: Direction.allDirections()) {
-                if(rc.canBuildRobot(RobotType.NET_GUN, dir)) {
-                    rc.buildRobot(RobotType.NET_GUN, dir);
-                    return;
+        if (rc.getTeamSoup() < RobotType.NET_GUN.cost) {
+            if (!foundNetgun && closestDrone.distance <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
+                for (Direction dir : Direction.allDirections()) {
+                    if (rc.canBuildRobot(RobotType.NET_GUN, dir)) {
+                        rc.buildRobot(RobotType.NET_GUN, dir);
+                        return;
+                    }
                 }
+            }
+        }
+
+        //If can't build a net gun and drone is too close try to move directly away from the enemy drone
+        if (closestDrone.distance <= 8) {
+            Direction runAwayDirection = closestDrone.robot.location.directionTo(rc.getLocation());
+            if (rc.canMove(runAwayDirection)) {
+                rc.move(runAwayDirection);
+                return;
+            } else if (rc.canMove(runAwayDirection.rotateRight())) {
+                rc.move(runAwayDirection.rotateRight());
+                return;
+            } else if (rc.canMove(runAwayDirection.rotateLeft())) {
+                rc.move(runAwayDirection.rotateLeft());
+                return;
             }
         }
     }
