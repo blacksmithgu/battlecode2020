@@ -30,7 +30,9 @@ public strictfp class DeliveryDrone extends Unit {
         // The drone ferrying was interrupted due to new information, and it is dropping off it's carried unit.
         DROPOFF_FRIENDLY,
         // The drone swarms the enemy HQ
-        SWARMING
+        SWARMING,
+        // The drone searches for the enemy HQ
+        FINDING_ENEMY_HQ
     }
 
     private static class Transition {
@@ -67,10 +69,6 @@ public strictfp class DeliveryDrone extends Unit {
     private MapLocation friendlyHQLoc;
     // Enemy team's HQ location
     private MapLocation enemyHQLoc;
-    // Locations the enemy HQ might be at, based on symmetry
-    private MapLocation[] enemyHQPossible;
-    // Tracks whether drone has already checked possible enemy HQ locations
-    private boolean[] enemyHQChecklist;
     // Comms object
     private Bitconnect comms;
     // If dropping off a landscaper on the wall, this is the wall to target
@@ -97,8 +95,6 @@ public strictfp class DeliveryDrone extends Unit {
         this.closestFriendlyLandscaper = null;
         this.friendlyHQLoc = null;
         this.enemyHQLoc = null;
-        this.enemyHQPossible = null;
-        this.enemyHQChecklist = new boolean[]{false, false, false};
         this.state = DroneState.ROAMING;
     }
 
@@ -138,6 +134,7 @@ public strictfp class DeliveryDrone extends Unit {
                 case FINDING_COW: trans = this.findingCow(rc); break;
                 case CHASING_COW: trans = this.chasingCow(rc); break;
                 case SWARMING: trans = this.swarming(rc); break;
+                case FINDING_ENEMY_HQ: trans = this.findEnemyHQ(rc); break;
                 default:
                 case ROAMING: trans = this.roaming(rc); break;
             }
@@ -150,6 +147,10 @@ public strictfp class DeliveryDrone extends Unit {
             this.state = trans.target;
             madeAction = trans.madeAction;
         } while (!madeAction);
+
+        if (enemyHQLoc != null) {
+            System.out.println("Enemy HQ at" + enemyHQLoc);
+        }
 
         // Useful for debugging.
         if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 0, 255, 0);
@@ -207,11 +208,17 @@ public strictfp class DeliveryDrone extends Unit {
             if (rc.senseSoup(closestHardSoup) == 0 || rc.senseFlooding(closestHardSoup)) closestHardSoup = null;
         }
 
-        // ???
-        if (!foundHQ && rc.canSenseLocation(this.enemyHQLoc) && rc.senseRobotAtLocation(this.enemyHQLoc) != null && rc.senseRobotAtLocation(this.enemyHQLoc).type != RobotType.HQ) {
-            enemyHqSymmetryIdx += 1;
-            enemyHQLoc = symmetryHq[enemyHqSymmetryIdx];
-            if (enemyHqSymmetryIdx == 2) {
+        // If drone doesn't yet know where the HQ is and is in sensor range of the next possible location, it checks
+        if (!foundHQ && rc.canSenseLocation(this.enemyHQLoc)) {
+            if (rc.senseRobotAtLocation(this.enemyHQLoc) == null || rc.senseRobotAtLocation(this.enemyHQLoc).type != RobotType.HQ) {
+                enemyHqSymmetryIdx += 1;
+                enemyHQLoc = symmetryHq[enemyHqSymmetryIdx];
+                if (enemyHqSymmetryIdx == 2) {
+                    comms.setEnemyBaseLocation(this.enemyHQLoc);
+                    foundHQ = true;
+                }
+            }
+            else if (rc.senseRobotAtLocation(this.enemyHQLoc).type == RobotType.HQ) {
                 comms.setEnemyBaseLocation(this.enemyHQLoc);
                 foundHQ = true;
             }
@@ -791,8 +798,8 @@ public strictfp class DeliveryDrone extends Unit {
         System.out.println("Swarming!");
         if (rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.DUNKING,false);
 
-        // If drone doesn't know where HQ is, goes back to roaming
-        if (enemyHQLoc == null) return new Transition(DroneState.ROAMING, false);
+        // If drone doesn't know where HQ is, it looks for the HQ
+        if (!foundHQ) return new Transition(DroneState.FINDING_ENEMY_HQ, false);
 
         // If sufficiently far from enemy base, then will dunk enemies on the way
         if (rc.getLocation().distanceSquaredTo(enemyHQLoc) > 40) {
@@ -806,18 +813,13 @@ public strictfp class DeliveryDrone extends Unit {
 
         int numDroneFriends = 0;
         // If drone near HQ and sees at least 8 friends (counting itself), it starts chasing
-        if (rc.getLocation().distanceSquaredTo(enemyHQLoc) < 25) {
-            RobotInfo[] friends = rc.senseNearbyRobots(-1, rc.getTeam());
-            for (RobotInfo friend : friends) {
-                if (friend.type == RobotType.DELIVERY_DRONE) numDroneFriends++;
-                if (numDroneFriends >=8) return new Transition(DroneState.CHASING, false);
-            }
-            // If near HQ but doesn't see enough drone friends, it stays still
-            return new Transition(DroneState.SWARMING, true);
+        if (rc.getLocation().distanceSquaredTo(enemyHQLoc) < 25 && rc.getRoundNum() > 2000) {
+            return new Transition(DroneState.CHASING, false);
         }
 
+
         // If drone not yet near HQ, it goes to it
-        // If no pathfinder, create it to the closest cow.
+        // If no pathfinder, create it to the HQ.
         if (this.pathfinder == null) {
             // If don't know where an enemy is, cry a little and roam.
             if (enemyHQLoc == null) {
@@ -828,10 +830,44 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         // Obtain a movement from the pathfinder and follow it.
+        // Checks that the destination is a certain distance away from HQ because there's one corner where drone...
+        // can't see HQ, but will move into net range
+        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
+        if (move != null && move != Direction.CENTER && canMoveD(rc, move, enemies, true))
+            if (rc.getLocation().add(move).distanceSquaredTo(enemyHQLoc) > GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
+                rc.move(move);
+            }
+
+        return new Transition(DroneState.SWARMING, true);
+    }
+
+    public Transition findEnemyHQ(RobotController rc) throws GameActionException{
+        if (foundHQ) {
+            return new Transition(DroneState.ROAMING, false);
+        }
+
+
+
+        // If no pathfinder, create it to the HQ.
+        if (this.pathfinder == null) {
+            // If enemyHQLoc is somehow null, cry a little and roam.
+            if (enemyHQLoc == null) {
+                return new Transition(DroneState.ROAMING, false);
+            } else {
+                this.pathfinder = this.newPathfinder(enemyHQLoc, true);
+            }
+        }
+
+        if (this.pathfinder.goal() != enemyHQLoc) {
+            this.pathfinder = this.newPathfinder(enemyHQLoc, true);
+        }
+
+        // Obtain a movement from the pathfinder and follow it.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
-        return new Transition(DroneState.SWARMING, true);
+        return new Transition(DroneState.FINDING_ENEMY_HQ, true);
     }
 
 
