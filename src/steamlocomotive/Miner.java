@@ -196,7 +196,7 @@ public class Miner extends Unit {
             return;
         }
 
-        RobotInfo[] nearbyRobots = rc.senseNearbyRobots(closestDrone.robot.location, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED, rc.getTeam());
+        RobotInfo[] nearbyRobots = rc.senseNearbyRobots(rc.getLocation(), GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED, rc.getTeam());
         boolean foundNetgun = false;
         for(RobotInfo info: nearbyRobots) {
             if(info.type == RobotType.NET_GUN) {
@@ -208,10 +208,16 @@ public class Miner extends Unit {
         // Check for enemy drones and try to build a net gun
         if (rc.getTeamSoup() < RobotType.NET_GUN.cost) {
             if (!foundNetgun && closestDrone.distance <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
-                for (Direction dir : Direction.allDirections()) {
-                    if (rc.canBuildRobot(RobotType.NET_GUN, dir)) {
-                        rc.buildRobot(RobotType.NET_GUN, dir);
-                        return;
+                if (rc.canBuildRobot(RobotType.NET_GUN, rc.getLocation().directionTo(closestDrone.robot.location))) {
+                    rc.buildRobot(RobotType.NET_GUN, rc.getLocation().directionTo(closestDrone.robot.location));
+                    return;
+                }
+                else {
+                    for (Direction dir : Direction.allDirections()) {
+                        if (rc.canBuildRobot(RobotType.NET_GUN, dir)) {
+                            rc.buildRobot(RobotType.NET_GUN, dir);
+                            return;
+                        }
                     }
                 }
             }
