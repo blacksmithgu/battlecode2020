@@ -226,13 +226,13 @@ public class Miner extends Unit {
         //If can't build a net gun and drone is too close try to move directly away from the enemy drone
         if (closestDrone.distance <= 8) {
             Direction runAwayDirection = closestDrone.robot.location.directionTo(rc.getLocation());
-            if (rc.canMove(runAwayDirection)) {
+            if (rc.canMove(runAwayDirection) && !rc.senseFlooding(rc.getLocation().add(runAwayDirection))) {
                 rc.move(runAwayDirection);
                 return;
-            } else if (rc.canMove(runAwayDirection.rotateRight())) {
+            } else if (rc.canMove(runAwayDirection.rotateRight()) && !rc.senseFlooding(rc.getLocation().add(runAwayDirection.rotateRight()))) {
                 rc.move(runAwayDirection.rotateRight());
                 return;
-            } else if (rc.canMove(runAwayDirection.rotateLeft())) {
+            } else if (rc.canMove(runAwayDirection.rotateLeft()) && !rc.senseFlooding(rc.getLocation().add(runAwayDirection.rotateLeft()))) {
                 rc.move(runAwayDirection.rotateLeft());
                 return;
             }
