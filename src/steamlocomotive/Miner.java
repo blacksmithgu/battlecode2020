@@ -2,8 +2,6 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.awt.*;
-
 public class Miner extends Unit {
 
     /** The possible miner states the miner can be in. */
@@ -263,16 +261,11 @@ public class Miner extends Unit {
         }
 
         // If no pathfinder, create it to the closest soup.
-        if (this.pathfinder == null) {
-            MapLocation closest = soups.closest(rc.getLocation());
+        MapLocation closest = soups.closest(rc.getLocation());
+        if (closest == null) return MinerState.ROAMING;
 
-            // If there is no soup, cry a little and roam.
-            if (closest == null) {
-                return MinerState.ROAMING;
-            } else {
-                this.pathfinder = this.newPathfinder(closest, true);
-            }
-        }
+        if (this.pathfinder == null || !this.pathfinder.goal().equals(closest))
+            this.pathfinder = this.newPathfinder(closest, true);
 
         // If pathfinder finished, transition to mining.
         if (this.pathfinder.finished(rc.getLocation())) return MinerState.MINE;
@@ -295,7 +288,8 @@ public class Miner extends Unit {
         if (this.refinery == null) return MinerState.FORCE_REFINERY;
 
         // Set up the pathfinder if it's currently null.
-        if (this.pathfinder == null) this.pathfinder = this.newPathfinder(this.refinery, true);
+        if (this.pathfinder == null || !this.pathfinder.goal().equals(this.refinery))
+            this.pathfinder = this.newPathfinder(this.refinery, true);
 
         // If the pathfinder is finished, drop off and transition.
         if (this.pathfinder.finished(rc.getLocation())) {
