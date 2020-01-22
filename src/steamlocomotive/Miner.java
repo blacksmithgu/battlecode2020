@@ -291,6 +291,12 @@ public class Miner extends Unit {
             if (rc.canMineSoup(dir)) return MinerState.MINE;
         }
 
+        // If we've been travelling for too long, set all soup locations to null and roam
+        if (this.pathfindSteps > 200) {
+            soups.clearInvalid(rc, loc -> true);
+            return MinerState.ROAMING;
+        }
+
         // If no pathfinder, create it to the closest soup.
         MapLocation closest = soups.closest(rc.getLocation());
         if (closest == null) return MinerState.ROAMING;
