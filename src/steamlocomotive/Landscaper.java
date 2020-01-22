@@ -148,6 +148,8 @@ public class Landscaper extends Unit {
         if (rc.canSenseLocation(this.hq) && rc.senseRobotAtLocation(this.hq).dirtCarrying > 0)
             digFrom = rc.getLocation().directionTo(this.hq);
 
+
+
         Direction depositLoc = Direction.CENTER;
         int height = rc.senseElevation(rc.getLocation());
 
@@ -165,6 +167,16 @@ public class Landscaper extends Unit {
                 }
             }
         }
+
+        // If adjacent to an enemy building, bury it
+        // This should help when defending against rush
+        if (this.closestEnemy != null && this.closestEnemy.location.isAdjacentTo(rc.getLocation()) && this.closestEnemy.type != RobotType.LANDSCAPER) {
+            if (rc.canDepositDirt(rc.getLocation().directionTo(closestEnemy.location))) {
+                depositLoc = rc.getLocation().directionTo(closestEnemy.location);
+            }
+        }
+
+        // Put dirt on target if we can. If not, dig more.
         if (rc.canDepositDirt(depositLoc)) {
             rc.depositDirt(depositLoc);
         } else {
@@ -180,6 +192,9 @@ public class Landscaper extends Unit {
     public LandscaperState moveToWall(RobotController rc) throws GameActionException {
         // If we're on the wall, get digging.
         if (this.isWallTile(rc.getLocation())) return LandscaperState.BUILD_WALL;
+
+        //If we encounter an enemy on our epic journey to get to the wall location, we attack
+        if (this.closestEnemy != null) return LandscaperState.BURY_ENEMY;
 
         // If the wall is occupied, go do something more useful.
         if (this.comms.isWallDone(rc)) return LandscaperState.TERRAFORM;
@@ -228,9 +243,9 @@ public class Landscaper extends Unit {
     public LandscaperState buryEnemy(RobotController rc) throws GameActionException {
         if (this.closestEnemy == null) return LandscaperState.TERRAFORM;
 
-        // If we are adjacent to something we can bury, get to it.
+        // If we are adjacent to something we can bury, bury it.
         if (rc.getLocation().isAdjacentTo(this.closestEnemy.location)) {
-            if (this.closestEnemy.type != RobotType.LANDSCAPER) {
+            if (!this.closestEnemy.type.canMove()) {
                 // Destroy normal enemy buildings.
                 if (rc.getDirtCarrying() > 0) {
                     rc.depositDirt(rc.getLocation().directionTo(this.closestEnemy.location));
