@@ -12,6 +12,8 @@ public strictfp class DeliveryDrone extends Unit {
         ROAMING,
         // The drone throws caution to the wind and attacks without regard for nets
         RECKLESS_CHASING,
+        // The drone chases enemies while trying not to kill itself
+        SAFE_CHASING,
         // The drone gives its new friend a bath.
         DUNKING,
         // The drone looks for an enemy that it saw earlier
@@ -125,6 +127,7 @@ public strictfp class DeliveryDrone extends Unit {
             Transition trans;
             switch (this.state) {
                 case RECKLESS_CHASING: trans = this.recklessChasing(rc); break;
+                case SAFE_CHASING: trans = this.safeChasing(rc); break;
                 case DUNKING: trans = this.dunking(rc); break;
                 case FINDING_MINER: trans = this.findingMiner(rc); break;
                 case FERRYING_MINER: trans = this.ferryingMiner(rc); break;
@@ -149,9 +152,9 @@ public strictfp class DeliveryDrone extends Unit {
             madeAction = trans.madeAction;
         } while (!madeAction);
 
-        if (enemyHQLoc != null) {
-            System.out.println("Enemy HQ at" + enemyHQLoc);
-        }
+//        if (enemyHQLoc != null) {
+//            System.out.println("Enemy HQ at" + enemyHQLoc);
+//        }
 
         // Useful for debugging.
         if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 0, 255, 0);
@@ -210,7 +213,7 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         // If drone doesn't yet know where the HQ is and is in sensor range of the next possible location, it checks
-        if (!foundHQ && rc.canSenseLocation(this.enemyHQLoc)) {
+        if (!foundHQ && enemyHQLoc != null && rc.canSenseLocation(this.enemyHQLoc)) {
             if (rc.senseRobotAtLocation(this.enemyHQLoc) == null || rc.senseRobotAtLocation(this.enemyHQLoc).type != RobotType.HQ) {
                 enemyHqSymmetryIdx += 1;
                 enemyHQLoc = symmetryHq[enemyHqSymmetryIdx];
@@ -218,12 +221,15 @@ public strictfp class DeliveryDrone extends Unit {
                     comms.setEnemyBaseLocation(this.enemyHQLoc);
                     foundHQ = true;
                 }
-            }
-            else if (rc.senseRobotAtLocation(this.enemyHQLoc).type == RobotType.HQ) {
-                comms.setEnemyBaseLocation(this.enemyHQLoc);
-                foundHQ = true;
+            } else if (enemyHQLoc != null && rc.canSenseLocation(this.enemyHQLoc)) {
+                if (rc.senseRobotAtLocation(this.enemyHQLoc).type == RobotType.HQ) {
+                    comms.setEnemyBaseLocation(this.enemyHQLoc);
+                    foundHQ = true;
+                }
             }
         }
+
+
 
         // If you're wondering why the weird array gimmick, it's so we can use this
         // inside the lambda. Unfortunate, yes.
@@ -461,13 +467,13 @@ public strictfp class DeliveryDrone extends Unit {
             RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
             for (RobotInfo nearbyEnemy : enemyRobots) {
                 if (nearbyEnemy.type.canBePickedUp()) {
-                    return new Transition(DroneState.RECKLESS_CHASING, false);
+                    return new Transition(DroneState.SAFE_CHASING, false);
                 }
             }
         }
 
         // If it's past round 1000, swarm the enemy base
-        if (rc.getRoundNum() >= 1000 && rc.getRoundNum() < 2000 && enemyHQLoc != null && !rc.isCurrentlyHoldingUnit()) {
+        if (rc.getRoundNum() >= 1000 && rc.getRoundNum() < 2000 && enemyHQLoc != null && foundHQ && !rc.isCurrentlyHoldingUnit()) {
             return new Transition(DroneState.SWARMING, false);
         }
 
@@ -480,7 +486,7 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         //If it's after a certain round and the wall has not been built, transition to ferrying a landscaper
-        if (wallLocations != null && wallIdxTarget != wallLocations.adjacentWallSpots.length && rc.getRoundNum() > 250 && !comms.isWallDone(rc) && closestFriendlyLandscaper != null && !rc.isCurrentlyHoldingUnit()) {
+        if (wallLocations != null && wallIdxTarget != wallLocations.adjacentWallSpots.length && rc.getRoundNum() > 200 && !comms.isWallDone(rc) && closestFriendlyLandscaper != null && !rc.isCurrentlyHoldingUnit()) {
             return new Transition(DroneState.FINDING_LANDSCAPER, false);
         }
 
@@ -668,7 +674,7 @@ public strictfp class DeliveryDrone extends Unit {
         RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         for (RobotInfo nearbyEnemy : enemyRobots) {
             if (nearbyEnemy.type.canBePickedUp()) {
-                return new Transition(DroneState.RECKLESS_CHASING, false);
+                return new Transition(DroneState.SAFE_CHASING, false);
             }
         }
 
@@ -706,7 +712,7 @@ public strictfp class DeliveryDrone extends Unit {
         RobotInfo[] enemyRobots = rc.senseNearbyRobots();
         for (RobotInfo nearbyEnemy : enemyRobots) {
             if (nearbyEnemy.type.canBePickedUp() && nearbyEnemy.team == rc.getTeam().opponent()) {
-                return new Transition(DroneState.RECKLESS_CHASING, false);
+                return new Transition(DroneState.SAFE_CHASING, false);
             }
         }
 
@@ -736,40 +742,51 @@ public strictfp class DeliveryDrone extends Unit {
     }
 
     public Transition chasingCow(RobotController rc) throws GameActionException {
-        MapLocation droneLoc = rc.getLocation();
-
-        // Check if carrying anything. If so, transition to dunking.
-        if (rc.isCurrentlyHoldingUnit() && closestWater != null) {
+        // If carrying anything, transition to dunking
+        if (rc.isCurrentlyHoldingUnit()) {
             return new Transition(DroneState.DUNKING, false);
         }
 
-        // Look for cows. If see one, identify closest cow and move towards it.
-        // If can already pick up unit, do so and transition to dunking.
-        if (!rc.isCurrentlyHoldingUnit()) {
-            Utils.ClosestRobot closest = Utils.closestRobot(rc, robot -> robot.type == RobotType.COW, Team.NEUTRAL);
-
-            // If not close, swap back to roaming.
-            if (closest.robot == null) return new Transition(DroneState.ROAMING, false);
-
-            // Pick it up if adjacent.
-            if (rc.canPickUpUnit(closest.robot.getID())) {
-                rc.pickUpUnit(closest.robot.getID());
-                return new Transition(DroneState.DUNKING, true);
-            }
-
-            // Otherwise move towards it.
-            // TODO: Implement better chasing movement.
-            MapLocation targetCowLocation = closest.robot.location;
-            recklessAndDumbChasing(rc, targetCowLocation);
-            return new Transition(DroneState.CHASING_COW, true);
+        // Drone identifies its target. If no target, it transitions to roaming.
+        Utils.ClosestRobot closestTarget = Utils.closestRobot(rc, robot -> robot.type == RobotType.COW, Team.NEUTRAL);
+        if (closestTarget == null) {
+            return new Transition(DroneState.ROAMING, false);
         }
 
-        // No unit to chase; go to roaming and hope things work out.
-        return new Transition(DroneState.ROAMING, false);
+        //If adjacent to target, pick them up and transition to dunking
+        if (rc.getLocation().isAdjacentTo(closestTarget.robot.location)) {
+            if (rc.canPickUpUnit(closestTarget.robot.ID)) {
+                rc.pickUpUnit(closestTarget.robot.ID);
+                return new Transition(DroneState.DUNKING, true);
+            }
+        }
+
+        // If pathfinder is not currently targeting the closest enemy, reset it
+        if (this.pathfinder != null) {
+            if (this.pathfinder.goal() != closestTarget.robot.location) {
+                this.pathfinder = null;
+            }
+        } // If no pathfinder, create it to the closest enemy
+        else if (this.pathfinder == null) {
+            // If closestTarget is somehow null, roam.
+            if (closestTarget == null) {
+                return new Transition(DroneState.ROAMING, false);
+            } else {
+                this.pathfinder = this.newPathfinder(closestTarget.robot.location, true);
+            }
+        }
+
+
+        // Obtain a movement from the pathfinder and follow it.
+        RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
+        if (move != null && move != Direction.CENTER && canMoveD(rc, move, nearbyEnemies, true)) rc.move(move);
+
+
+        return new Transition(DroneState.DUNKING, true);
     }
 
     public Transition swarming(RobotController rc) throws GameActionException{
-        System.out.println("Swarming!");
         if (rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.DUNKING,false);
 
         // If drone doesn't know where HQ is, it looks for the HQ
@@ -845,11 +862,64 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         // Obtain a movement from the pathfinder and follow it.
+        RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
-        if (move != null && move != Direction.CENTER) rc.move(move);
+        if (move != null && move != Direction.CENTER && canMoveD(rc, move, nearbyEnemies, true)) rc.move(move);
 
         return new Transition(DroneState.FINDING_ENEMY_HQ, true);
     }
+
+    // Chasing an enemy while trying not to get shot down by net guns
+    public Transition safeChasing(RobotController rc) throws GameActionException {
+
+        // If carrying anything, transition to dunking
+        if (rc.isCurrentlyHoldingUnit()) {
+            return new Transition(DroneState.DUNKING, false);
+        }
+
+        if (foundHQ && enemyHQLoc !=null && rc.getRoundNum() > 1000 && rc.getLocation().distanceSquaredTo(enemyHQLoc) < 70) {
+            return new Transition(DroneState.SWARMING, false);
+        }
+
+        // Drone identifies its target. If no target, it transitions to roaming.
+        Utils.ClosestRobot closestTarget = Utils.closestRobot(rc, robot -> robot.type == RobotType.LANDSCAPER || robot.type == RobotType.MINER, rc.getTeam().opponent());
+        if (closestTarget == null) {
+            return new Transition(DroneState.ROAMING, false);
+        }
+
+        //If adjacent to target, pick them up and transition to dunking
+        if (rc.getLocation().isAdjacentTo(closestTarget.robot.location)) {
+            if (rc.canPickUpUnit(closestTarget.robot.ID)) {
+                rc.pickUpUnit(closestTarget.robot.ID);
+                return new Transition(DroneState.DUNKING, true);
+            }
+        }
+
+        // If pathfinder is not currently targeting the closest enemy, reset it
+        if (this.pathfinder != null) {
+            if (this.pathfinder.goal() != closestTarget.robot.location) {
+                this.pathfinder = null;
+            }
+        } // If no pathfinder, create it to the closest enemy
+        else if (this.pathfinder == null) {
+            // If closestTarget is somehow null, roam.
+            if (closestTarget == null) {
+                return new Transition(DroneState.ROAMING, false);
+            } else {
+                this.pathfinder = this.newPathfinder(closestTarget.robot.location, true);
+            }
+        }
+
+
+        // Obtain a movement from the pathfinder and follow it.
+        RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
+        if (move != null && move != Direction.CENTER && canMoveD(rc, move, nearbyEnemies, true)) rc.move(move);
+
+
+        return new Transition(DroneState.SAFE_CHASING, true);
+    }
+
 
 
     /** A movement check which respects enemy netgun range. */
