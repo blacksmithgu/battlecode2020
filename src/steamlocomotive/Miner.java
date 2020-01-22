@@ -247,6 +247,9 @@ public class Miner extends Unit {
         // If there is nonzero soup we are aware of, transition to traveling to it.
         if (rc.getSoupCarrying() < Config.INVENTORY_RETURN_SIZE && soups.hasCluster()) return MinerState.TRAVEL;
 
+        // If we have a lot of soup, consider building a building
+        if (rc.getTeamSoup() > 1000) return MinerState.DREAMING_ABOUT_BUILDINGS;
+
         // Otherwise, roam around looking for soup and other objects of interest.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
             // TODO: More intelligent target selection. We choose randomly for now.
