@@ -152,9 +152,9 @@ public strictfp class DeliveryDrone extends Unit {
             madeAction = trans.madeAction;
         } while (!madeAction);
 
-//        if (enemyHQLoc != null) {
-//            System.out.println("Enemy HQ at" + enemyHQLoc);
-//        }
+        if (enemyHQLoc != null) {
+            System.out.println("Enemy HQ at" + enemyHQLoc);
+        }
 
         // Useful for debugging.
         if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 0, 255, 0);
@@ -269,12 +269,10 @@ public strictfp class DeliveryDrone extends Unit {
                             this.closestEnemyLandUnit = loc;
                             enemyLandUnitDistance[0] = dist;
                         }
-                    } else if (nearbyRobot.type == RobotType.HQ && this.enemyHQLoc == null) {
+                    } else if (nearbyRobot.type == RobotType.HQ && !foundHQ) {
                         this.enemyHQLoc = nearbyRobot.location;
-                        if (foundHQ == false) {
                             comms.setEnemyBaseLocation(this.enemyHQLoc);
                             foundHQ = true;
-                        }
                     }
                 } else if (nearbyRobot.type == RobotType.MINER) {
                     if (dist < friendlyMinerDistance[0]) {
