@@ -206,7 +206,7 @@ public class Miner extends Unit {
         }
 
         // Check for enemy drones and try to build a net gun
-        if (rc.getTeamSoup() < RobotType.NET_GUN.cost) {
+        if (rc.getTeamSoup() >= RobotType.NET_GUN.cost) {
             if (!foundNetgun && closestDrone.distance <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
                 if (rc.canBuildRobot(RobotType.NET_GUN, rc.getLocation().directionTo(closestDrone.robot.location))) {
                     rc.buildRobot(RobotType.NET_GUN, rc.getLocation().directionTo(closestDrone.robot.location));
