@@ -473,7 +473,7 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         // If it's past round 1000, swarm the enemy base
-        if (rc.getRoundNum() >= 1000 && rc.getRoundNum() < 2000 && enemyHQLoc != null && foundHQ && !rc.isCurrentlyHoldingUnit()) {
+        if (rc.getRoundNum() >= 1000  && enemyHQLoc != null && foundHQ && !rc.isCurrentlyHoldingUnit()) {
             return new Transition(DroneState.SWARMING, false);
         }
 
@@ -797,12 +797,13 @@ public strictfp class DeliveryDrone extends Unit {
             RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
             for (RobotInfo nearbyEnemy : enemyRobots) {
                 if (nearbyEnemy.type.canBePickedUp()) {
-                    return new Transition(DroneState.RECKLESS_CHASING, false);
+                    return new Transition(DroneState.SAFE_CHASING, false);
                 }
             }
         }
 
         // If drone near HQ and it's been long enough, swarm. There are four waves.
+        // If drone is near HQ and it's not yet time, it sits still
         if (rc.getLocation().distanceSquaredTo(enemyHQLoc) < 25){
             if (rc.getRoundNum() > 1600 && rc.getRoundNum() < 1610) {
                 return new Transition(DroneState.RECKLESS_CHASING, false);
@@ -815,6 +816,9 @@ public strictfp class DeliveryDrone extends Unit {
             }
             else if (rc.getRoundNum() > 3000) {
                 return new Transition(DroneState.RECKLESS_CHASING, false);
+            }
+            else {
+                return new Transition(DroneState.SWARMING, true);
             }
         }
 
