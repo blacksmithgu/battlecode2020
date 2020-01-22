@@ -193,8 +193,21 @@ public class Landscaper extends Unit {
         // If we're on the wall, get digging.
         if (this.isWallTile(rc.getLocation())) return LandscaperState.BUILD_WALL;
 
-        //If we encounter an enemy on our epic journey to get to the wall location, we attack
+        // If we encounter an enemy (building, probably) on our epic journey to get to the wall location, we attack
         if (this.closestEnemy != null) return LandscaperState.BURY_ENEMY;
+
+        // If we're adjacent to HQ and HQ has dirt on it, dig from it. If can't due to being full of dirt already, place dirt beneath self
+        if (hq != null && rc.getLocation().isAdjacentTo(hq) && rc.canSenseLocation(hq) && rc.senseRobotAtLocation(hq).dirtCarrying >0) {
+            if (rc.canDigDirt(rc.getLocation().directionTo(hq))) {
+                rc.digDirt(rc.getLocation().directionTo(hq));
+                return LandscaperState.MOVE_TO_WALL;
+            }
+            else if (rc.canDepositDirt(Direction.CENTER)) {
+                rc.depositDirt(Direction.CENTER);
+                return LandscaperState.MOVE_TO_WALL;
+            }
+        }
+
 
         // If the wall is occupied, go do something more useful.
         if (this.comms.isWallDone(rc)) return LandscaperState.TERRAFORM;
