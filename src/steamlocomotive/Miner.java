@@ -463,8 +463,8 @@ public class Miner extends Unit {
             if (buildDesign && rc.getLocation().distanceSquaredTo(hq) < 60) typeToBuild = RobotType.DESIGN_SCHOOL;
             else if (buildFulfillment && rc.getLocation().distanceSquaredTo(hq) < 60) typeToBuild = RobotType.FULFILLMENT_CENTER;
             else if (buildVaporator) typeToBuild = RobotType.VAPORATOR;
-            else if (buildDesign) typeToBuild = RobotType.DESIGN_SCHOOL;
             else if (buildFulfillment) typeToBuild = RobotType.FULFILLMENT_CENTER;
+            else if (buildDesign) typeToBuild = RobotType.DESIGN_SCHOOL;
             else if (buildNetGun) typeToBuild = RobotType.NET_GUN;
             else typeToBuild = (this.rng.nextDouble() < Config.FULFILLMENT_CENTER_PROB) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
 
