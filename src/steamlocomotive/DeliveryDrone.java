@@ -624,10 +624,18 @@ public strictfp class DeliveryDrone extends Unit {
         // If something has happened to our destination, drop the miner
         if (closestHardSoup == null) return new Transition(DroneState.DROPOFF_FRIENDLY, true);
 
-        // If we can drop miner on soup location, immediately do so and go back to roaming
+        // If we can drop miner by soup location, immediately do so and go back to roaming
         if (rc.getLocation().isAdjacentTo(closestHardSoup)) {
             Direction onSoupDirection = rc.getLocation().directionTo(closestHardSoup);
-            if (rc.canDropUnit(rc.getLocation().directionTo(closestHardSoup))) {
+            if (rc.canDropUnit(onSoupDirection.rotateLeft()) && !rc.senseFlooding(rc.getLocation().add(onSoupDirection.rotateLeft()))) {
+                rc.dropUnit(onSoupDirection.rotateLeft());
+                return new Transition(DroneState.ROAMING, true);
+            }
+            else if (rc.canDropUnit(onSoupDirection.rotateRight()) && !rc.senseFlooding(rc.getLocation().add(onSoupDirection.rotateRight()))) {
+                rc.dropUnit(onSoupDirection.rotateRight());
+                return new Transition(DroneState.ROAMING, true);
+            }
+            else if (rc.canDropUnit(rc.getLocation().directionTo(closestHardSoup))) {
                 rc.dropUnit(onSoupDirection);
                 return new Transition(DroneState.ROAMING, true);
             }
