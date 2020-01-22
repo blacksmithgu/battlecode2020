@@ -754,7 +754,7 @@ public strictfp class DeliveryDrone extends Unit {
             // Pick it up if adjacent.
             if (rc.canPickUpUnit(closest.robot.getID())) {
                 rc.pickUpUnit(closest.robot.getID());
-                return new Transition(DroneState.FINDING_ENEMY_HQ, true);
+                return new Transition(DroneState.DUNKING, true);
             }
 
             // Otherwise move towards it.
@@ -785,12 +785,21 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        int numDroneFriends = 0;
-        // If drone near HQ and sees at least 8 friends (counting itself), it starts chasing
-        if (rc.getLocation().distanceSquaredTo(enemyHQLoc) < 25 && rc.getRoundNum() > 2000) {
-            return new Transition(DroneState.RECKLESS_CHASING, false);
+        // If drone near HQ and it's been long enough, swarm. There are four waves.
+        if (rc.getLocation().distanceSquaredTo(enemyHQLoc) < 25){
+            if (rc.getRoundNum() > 1600 && rc.getRoundNum() < 1610) {
+                return new Transition(DroneState.RECKLESS_CHASING, false);
+            }
+            else if (rc.getRoundNum() > 2100 && rc.getRoundNum() < 2110) {
+                return new Transition(DroneState.RECKLESS_CHASING, false);
+            }
+            else if (rc.getRoundNum() > 2600 && rc.getRoundNum() < 2610) {
+                return new Transition(DroneState.RECKLESS_CHASING, false);
+            }
+            else if (rc.getRoundNum() > 3000) {
+                return new Transition(DroneState.RECKLESS_CHASING, false);
+            }
         }
-
 
         // If drone not yet near HQ, it goes to it
         // If no pathfinder, create it to the HQ.
@@ -820,7 +829,7 @@ public strictfp class DeliveryDrone extends Unit {
         if (foundHQ) {
             return new Transition(DroneState.ROAMING, false);
         }
-        
+
         // If no pathfinder, create it to the HQ.
         if (this.pathfinder == null) {
             // If enemyHQLoc is somehow null, cry a little and roam.
