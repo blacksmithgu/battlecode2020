@@ -42,14 +42,19 @@ public class HQ extends Unit {
             boolean allDone = true;
             for (MapLocation loc : this.wall.adjacentWallSpots) {
                 RobotInfo rob = rc.senseRobotAtLocation(loc);
-                if (rob == null || rob.type != RobotType.LANDSCAPER) {
+                if (rob == null || rob.type != RobotType.LANDSCAPER || rob.team != rc.getTeam()) {
                     allDone = false;
                     break;
                 }
             }
 
             if (allDone) comms.wallClaimed(rc);
-            if (this.enemyHq != null) comms.setEnemyBaseLocation(this.enemyHq);
+
+            // If don't know where enemyHq is, look for it on comms
+            // If know where enemyHq is, periodically broadcast it for everyone else
+            if (this.enemyHq == null && comms.getEnemyBaseLocation() != null) {
+                this.enemyHq = comms.getEnemyBaseLocation();
+            } else if (this.enemyHq != null && rc.getRoundNum() % 21 == 0) comms.setEnemyBaseLocation(this.enemyHq);
         }
 
         // Aggressively shoot down enemy drones if they roam too closely.
