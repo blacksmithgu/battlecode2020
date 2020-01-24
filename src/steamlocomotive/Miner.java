@@ -21,7 +21,9 @@ public class Miner extends Unit {
         /** The miner is considering opening a refinery of it's own, settling down, having a family. */
         DREAMING_ABOUT_REFINERY,
         /** The miner is considering opening a fulfillment center or design school, to really start building the community. */
-        DREAMING_ABOUT_BUILDINGS
+        DREAMING_ABOUT_BUILDINGS,
+        /** The miner decides that it can best contribute by making a ton of vaporators near HQ */
+        BASE_BUILDING
     }
 
     // The mode that the miner is currently in.
@@ -97,6 +99,7 @@ public class Miner extends Unit {
                 case FORCE_REFINERY: next = this.forceRefinery(rc); break;
                 case DREAMING_ABOUT_REFINERY: next = this.refinery(rc); break;
                 case DREAMING_ABOUT_BUILDINGS: next = this.buildings(rc); break;
+                case BASE_BUILDING: next = this.baseBuilding(rc); break;
                 default:
                 case ROAMING: next = this.roaming(rc); break;
             }
@@ -241,6 +244,11 @@ public class Miner extends Unit {
 
     /** Implements roaming behavior, where the miner roams until it finds soup somewhere. */
     public MinerState roaming(RobotController rc) throws GameActionException {
+        // If miner spawned sufficiently late, it goes to base building
+        if (rc.getLocation().isAdjacentTo(hq) && rc.getRoundNum() >= 150) {
+            return MinerState.BASE_BUILDING;
+        }
+
         // If our inventory is full, drop it off.
         if (rc.getSoupCarrying() >= Config.INVENTORY_RETURN_SIZE) return MinerState.DROPOFF;
 
@@ -448,7 +456,10 @@ public class Miner extends Unit {
         boolean buildNetGun = (this.netGun == null || this.netGun.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_NET_GUN_MIN_DIST);
         boolean buildVaporator = (this.vaporator == null || this.vaporator.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_VAP_MIN_DIST);
 
-        if (!buildDesign && !buildFulfillment && !buildNetGun && !buildVaporator) return MinerState.TRAVEL;
+        if (!buildDesign && !buildFulfillment && !buildNetGun && !buildVaporator)  {
+            if (rc.getLocation().distanceSquaredTo(hq) < 60) return MinerState.BASE_BUILDING;
+            else return MinerState.TRAVEL;
+        }
 
         // Scan the nearby surroundings for a good place within a few steps of us to build our building.
         if (this.pathfinder == null) {
@@ -477,7 +488,12 @@ public class Miner extends Unit {
             if (rc.canBuildRobot(typeToBuild, towards))
                 rc.buildRobot(typeToBuild, towards);
 
-            return MinerState.TRAVEL;
+            if (rc.getLocation().distanceSquaredTo(hq) < 80 && rc.getRoundNum() > 300) {
+                return MinerState.BASE_BUILDING;
+            }
+            else {
+                return MinerState.TRAVEL;
+            }
         }
 
         // Quit if we've wasted too much time on this.
@@ -490,6 +506,50 @@ public class Miner extends Unit {
         this.pathfindSteps++;
 
         return MinerState.DREAMING_ABOUT_BUILDINGS;
+    }
+
+    public MinerState baseBuilding(RobotController rc) throws GameActionException {
+        // The miner roams near our HQ, building many vaporators and some net guns
+
+        // If we have enough soup, build things
+        if (rc.getTeamSoup() > RobotType.VAPORATOR.cost && rc.getRoundNum() % 4 == rc.getID() % 4) {
+            return MinerState.DREAMING_ABOUT_BUILDINGS;
+        }
+
+        // If sufficiently far from HQ, head to the other side of it
+        if (rc.getLocation().distanceSquaredTo(hq) >= 45) {
+            Direction towardsHQ = rc.getLocation().directionTo(hq);
+            MapLocation farSideOfHQ = hq.add(towardsHQ).add(towardsHQ).add(towardsHQ).add(towardsHQ);
+            if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE || this.pathfinder.goal() != farSideOfHQ) {
+                // TODO: More intelligent target selection. We choose randomly for now.
+                MapLocation target = farSideOfHQ;
+
+                this.pathfinder = this.newPathfinder(target, true);
+                this.pathfindSteps = 0;
+            }
+
+            // Obtain a movement from the pathfinder and follow it.
+            Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+            if (move != null && move != Direction.CENTER) rc.move(move);
+            this.pathfindSteps++;
+        }
+        else {
+            // Else, roam randomly
+            if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
+                // TODO: More intelligent target selection. We choose randomly for now.
+                MapLocation target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
+
+                this.pathfinder = this.newPathfinder(target, true);
+                this.pathfindSteps = 0;
+            }
+
+            // Obtain a movement from the pathfinder and follow it.
+            Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+            if (move != null && move != Direction.CENTER) rc.move(move);
+            this.pathfindSteps++;
+        }
+
+        return MinerState.BASE_BUILDING;
     }
 
     @Override

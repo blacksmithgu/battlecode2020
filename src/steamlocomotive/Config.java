@@ -97,7 +97,7 @@ public class Config {
     /**
      * The minimum distance vaporators should be from each other
      */
-    public static final int BUILD_VAP_MIN_DIST = 20;
+    public static final int BUILD_VAP_MIN_DIST = 4;
 
     /**
      * The min squared distance we build buildings away from the HQ.
