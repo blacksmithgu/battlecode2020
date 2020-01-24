@@ -476,6 +476,11 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
 
+        //If it's after a certain round and the wall has not been built, transition to ferrying a landscaper
+        if (wallLocations != null && wallIdxTarget != wallLocations.adjacentWallSpots.length && rc.getRoundNum() > 200 && !comms.isWallDone(rc) && closestFriendlyLandscaper != null && !rc.isCurrentlyHoldingUnit()) {
+            return new Transition(DroneState.FINDING_LANDSCAPER, false);
+        }
+
         //If there's hard-to-reach soup, and not currently carrying anything, transition to ferrying a miner
         if (closestHardSoup != null && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit()) {
             if (closestFriendlyMiner.distanceSquaredTo(closestHardSoup) >= 18) {
@@ -483,10 +488,7 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        //If it's after a certain round and the wall has not been built, transition to ferrying a landscaper
-        if (wallLocations != null && wallIdxTarget != wallLocations.adjacentWallSpots.length && rc.getRoundNum() > 200 && !comms.isWallDone(rc) && closestFriendlyLandscaper != null && !rc.isCurrentlyHoldingUnit()) {
-            return new Transition(DroneState.FINDING_LANDSCAPER, false);
-        }
+
 
         // If drone knows where a cow is, it chases after it.
         if (closestCow != null && !rc.isCurrentlyHoldingUnit())
