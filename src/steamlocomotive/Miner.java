@@ -261,7 +261,7 @@ public class Miner extends Unit {
         if (rc.getTeamSoup() > 1000) return MinerState.DREAMING_ABOUT_BUILDINGS;
 
         // If it's sufficiently late in the game, transition to being a base builder
-        if (rc.getRoundNum() > 500) {
+        if (rc.getRoundNum() > 350) {
             isBaseBuilder = true;
             return MinerState.BASE_BUILDING;
         }
@@ -583,7 +583,7 @@ public class Miner extends Unit {
             this.enemyHq = this.symmetryHq[0];
         }
 
-        if (rc.getRoundNum() > 200) isBaseBuilder = true;
+        if (rc.getRoundNum() > 200 || rc.getID() % 5 == rc.getRoundNum() % 5) isBaseBuilder = true;
         else isBaseBuilder = false;
     }
 
