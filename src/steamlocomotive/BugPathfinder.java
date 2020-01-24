@@ -5,8 +5,6 @@ import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 
-import java.util.function.Function;
-
 /**
  * Implements bug pathfinding vaguely according to https://www.cs.cmu.edu/~motionplanning/lecture/Chap2-Bug-Alg_howie.pdf
  * and Niels' wisdom.
@@ -65,8 +63,37 @@ public class BugPathfinder {
     private Direction heading;
     // The distance we collided the obstacle at.
     private int obstacleDistance;
-    /// If true, then we can just pathfind to an adjacent tile to the goal.
+    // If true, then we can just pathfind to an adjacent tile to the goal.
     private boolean allowAdjacent;
+    // List of locations that we have visited along a wall.
+    private DynamicArray<LocationAndDirection> wallPerimeter;
+
+    private class LocationAndDirection {
+        MapLocation location;
+        Direction heading;
+
+        public LocationAndDirection(MapLocation loc, Direction heading) {
+            this.location = loc;
+            this.heading = heading;
+        }
+
+        @Override
+        public int hashCode() {
+            return location.hashCode() ^ heading.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if(other == null) {
+                return false;
+            }
+            if(other instanceof LocationAndDirection) {
+                LocationAndDirection loc = (LocationAndDirection) other;
+                return this.heading == loc.heading && this.location.x == loc.location.x && this.location.y == loc.location.y;
+            }
+            return false;
+        }
+    }
 
     private BugPathfinder(MapLocation goal, FollowingDirection preferredDirection, boolean allowAdjacent) {
         this.goal = goal;
@@ -94,9 +121,14 @@ public class BugPathfinder {
         // Check if the wall is still around - could have been a unit!
         // The wall is orthogonal to the heading based on our follow direction.
         if (this.following) {
-            Direction toWall = this.followDirection.alongWall(this.followDirection.alongWall(this.heading));
-            if (walkable.apply(toWall)) {
+            if(wallPerimeter.contains(new LocationAndDirection(loc, heading))) {
                 this.following = false;
+            } else {
+                wallPerimeter.add(new LocationAndDirection(loc, heading));
+                Direction toWall = this.followDirection.alongWall(this.followDirection.alongWall(this.heading));
+                if (walkable.apply(toWall)) {
+                    this.following = false;
+                }
             }
         }
 
@@ -109,6 +141,7 @@ public class BugPathfinder {
         // Otherwise, we can't directly go; if we aren't following, then we hit an obstacle, so start following.
         if (!this.following) {
             this.following = true;
+            this.wallPerimeter = new DynamicArray<>(30);
             this.obstacleDistance = loc.distanceSquaredTo(this.goal);
             this.heading = direct;
         }
