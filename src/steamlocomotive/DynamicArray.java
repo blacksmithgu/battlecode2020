@@ -114,4 +114,9 @@ public class DynamicArray<T> implements Iterable<T> {
         }
         return false;
     }
+
+    public DynamicArray(T[] arg) {
+        this.content = arg;
+        this.size = arg.length;
+    }
 }

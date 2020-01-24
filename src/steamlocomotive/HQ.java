@@ -117,28 +117,48 @@ public class HQ extends Unit {
     public Bitconnect.HQSurroundings computeWall(RobotController rc) {
         List<MapLocation> wallSpots = new ArrayList<>(8);
         MapLocation us = rc.getLocation();
-        for (int xOffset = -1; xOffset <= 1; xOffset++) {
-            for (int yOffset = -1; yOffset <= 1; yOffset++) {
-                if (xOffset == 0 && yOffset == 0) continue;
+        int width = rc.getMapWidth();
+        int height = rc.getMapHeight();
+        // TODO: implement the remaining off-corner cases
+        if(us.x == 2 && us.y == 1) {
+            wallSpots.add(new MapLocation(0,2));
+            wallSpots.add(new MapLocation(1,2));
+            wallSpots.add(new MapLocation(2,2));
+            wallSpots.add(new MapLocation(3,2));
+            wallSpots.add(new MapLocation(3,1));
+            wallSpots.add(new MapLocation(3,0));
 
-                MapLocation loc = new MapLocation(us.x + xOffset, us.y + yOffset);
-                if (!rc.onTheMap(loc)) continue;
+        } else if(us.x == 2 && us.y == height - 2) {
+            wallSpots.add(new MapLocation(0,height-3));
+            wallSpots.add(new MapLocation(1,height-3));
+            wallSpots.add(new MapLocation(2,height-3));
+            wallSpots.add(new MapLocation(3,height-3));
+            wallSpots.add(new MapLocation(3,height-2));
+            wallSpots.add(new MapLocation(3,height-1));
+        } else {
+            for (int xOffset = -1; xOffset <= 1; xOffset++) {
+                for (int yOffset = -1; yOffset <= 1; yOffset++) {
+                    if (xOffset == 0 && yOffset == 0) continue;
 
-                // Check to see if we're in a corner, or against a wall, to see if the wall is not necessary.
-                // Check for an absolute corner of the map.
-                if (Math.abs(xOffset) + Math.abs(yOffset) == 2) {
-                    MapLocation xDir = new MapLocation(us.x + 2 * xOffset, us.y);
-                    MapLocation yDir = new MapLocation(us.x, us.y + 2 * yOffset);
-                    if (!rc.onTheMap(xDir) && !rc.onTheMap(yDir)) continue;
+                    MapLocation loc = new MapLocation(us.x + xOffset, us.y + yOffset);
+                    if (!rc.onTheMap(loc)) continue;
+
+                    // Check to see if we're in a corner, or against a wall, to see if the wall is not necessary.
+                    // Check for an absolute corner of the map.
+                    if (Math.abs(xOffset) + Math.abs(yOffset) == 2) {
+                        MapLocation xDir = new MapLocation(us.x + 2 * xOffset, us.y);
+                        MapLocation yDir = new MapLocation(us.x, us.y + 2 * yOffset);
+                        if (!rc.onTheMap(xDir) && !rc.onTheMap(yDir)) continue;
+                    }
+
+                    // Check for an edge of the map that's not a corner.
+                    if (Math.abs(xOffset) + Math.abs(yOffset) == 1) {
+                        MapLocation cornerDir = new MapLocation(us.x + 2 * xOffset, us.y + 2 * yOffset);
+                        if (!rc.onTheMap(cornerDir)) continue;
+                    }
+
+                    wallSpots.add(loc);
                 }
-
-                // Check for an edge of the map that's not a corner.
-                if (Math.abs(xOffset) + Math.abs(yOffset) == 1) {
-                    MapLocation cornerDir = new MapLocation(us.x + 2 * xOffset, us.y + 2 * yOffset);
-                    if (!rc.onTheMap(cornerDir)) continue;
-                }
-
-                wallSpots.add(loc);
             }
         }
 

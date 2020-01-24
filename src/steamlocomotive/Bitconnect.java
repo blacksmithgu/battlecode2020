@@ -2,6 +2,8 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
+import java.util.Map;
+
 public class Bitconnect {
 
     // width of the map
@@ -37,7 +39,7 @@ public class Bitconnect {
 
     public static class HQSurroundings {
         final MapLocation hq;
-        final MapLocation[] adjacentWallSpots;
+        final DynamicArray<MapLocation> adjacentWallSpots;
         final Team ourTeam;
 
         /**
@@ -45,21 +47,27 @@ public class Bitconnect {
          */
         public HQSurroundings(MapLocation hq, MapLocation[] adjacentWallSpots, Team ourTeam) {
             this.hq = hq;
+            this.adjacentWallSpots = new DynamicArray<>(adjacentWallSpots);
+            this.ourTeam = ourTeam;
+        }
+
+        public HQSurroundings(MapLocation hq, DynamicArray<MapLocation> adjacentWallSpots, Team ourTeam) {
+            this.hq = hq;
             this.adjacentWallSpots = adjacentWallSpots;
             this.ourTeam = ourTeam;
         }
 
         /** Returns true if the location is a wall tile. */
         public boolean isWall(MapLocation loc) {
-            return listContainsLocation(this.adjacentWallSpots, loc);
+            return listContainsLocation(this.adjacentWallSpots, loc)>=0;
         }
 
-        private boolean listContainsLocation(MapLocation[] locs, MapLocation location) {
-            for (MapLocation test : locs) {
-                if(test.x == location.x && test.y == location.y) return true;
+        private int listContainsLocation(DynamicArray<MapLocation> locs, MapLocation location) {
+            for (int index = 0; index < locs.size(); index ++) {
+                MapLocation test = locs.get(index);
+                if(test.x == location.x && test.y == location.y) return index;
             }
-
-            return false;
+            return -1;
         }
 
         public Block toMessage() {
@@ -70,18 +78,38 @@ public class Bitconnect {
             message[3] = 0;
 
             int index = 0;
+            DynamicArray<MapLocation> removed = new DynamicArray<>(adjacentWallSpots.size());
 
             for(Direction direction: Direction.allDirections()){
                 if(direction.equals(Direction.CENTER)) {
                     continue;
                 }
-
-                if(listContainsLocation(this.adjacentWallSpots, hq.add(direction))){
+                int locIndex = listContainsLocation(this.adjacentWallSpots, hq.add(direction));
+                if(locIndex >= 0){
                     message[3] = setBit(message[3], index, true);
+                    removed.add(adjacentWallSpots.get(locIndex));
+                    adjacentWallSpots.removeQuick(locIndex);
                 } else {
                     message[3] = setBit(message[3], index, false);
                 }
                 index++;
+            }
+            setBits(message, 3*32 + index, 1, 0);
+            // TODO: fix issue of this being larger than the message
+            while (adjacentWallSpots.size() > 0) {
+                setBits(message, 3*32+index, 1, 1);
+                index++;
+                setBits(message, 3*32 + index, 6, adjacentWallSpots.get(0).x);
+                index+=6;
+                setBits(message, 3*32 + index, 6, adjacentWallSpots.get(0).y);
+                index+=6;
+                removed.add(adjacentWallSpots.get(0));
+                adjacentWallSpots.removeQuick(0);
+            }
+            setBits(message, 3*32 + index, 1, 0);
+
+            for(MapLocation loc: removed) {
+                adjacentWallSpots.add(loc);
             }
 
             return Block.createBlock(message, ourTeam);
@@ -93,28 +121,30 @@ public class Bitconnect {
                 return null;
             }
             MapLocation hq = new MapLocation(message[1], message[2]);
-            int count = 0;
 
             int adjContent = message[3];
-            for(int index = 0; index < 8; index++) {
-                if(getBit(adjContent, index)) {
-                    count++;
-                }
-            }
 
-            MapLocation[] locations = new MapLocation[count];
-            int locationsIndex = 0;
+            DynamicArray<MapLocation> locations = new DynamicArray<>(8);
             int adjIndex = 0;
             for(Direction direction: Direction.allDirections()) {
                 if(direction == Direction.CENTER) {
                     continue;
                 }
                 if(getBit(adjContent, adjIndex)) {
-                    locations[locationsIndex] = hq.add(direction);
-                    locationsIndex++;
+                    locations.add(hq.add(direction));
                 }
                 adjIndex++;
             }
+            int index = 3*32 + adjIndex;
+            while (getBits(message, index, 1) == 1) {
+                index++;
+                int x = getBits(message, index, 6);
+                index+=6;
+                int y = getBits(message, index, 6);
+                index+=6;
+                locations.add(new MapLocation(x,y));
+            }
+
             return new HQSurroundings(hq, locations, team);
         }
 
@@ -126,12 +156,12 @@ public class Bitconnect {
                 return false;
             }
             for(MapLocation location: this.adjacentWallSpots) {
-                if(!this.listContainsLocation(other.adjacentWallSpots, location)) {
+                if(this.listContainsLocation(other.adjacentWallSpots, location)==-1) {
                     return false;
                 }
             }
             for(MapLocation location: other.adjacentWallSpots) {
-                if(!this.listContainsLocation(this.adjacentWallSpots, location)) {
+                if(this.listContainsLocation(this.adjacentWallSpots, location)==-1) {
                     return false;
                 }
             }
@@ -269,6 +299,41 @@ public class Bitconnect {
      */
     public static int setBit(int integer, int index, boolean value) {
         return value ? integer | (1 << index) : integer & ~(1 << index);
+    }
+
+    /**
+     * Set bits in an array at the correct position
+     */
+    public static void setBits(int[] array, int index, int numBits, int value) {
+        int currentInt = index/32;
+        int currentPosition = index % 32;
+        for(int count = 0; count < numBits; count++) {
+            array[currentInt] = setBit(array[currentInt], currentPosition, getBit(value, count));
+            currentPosition++;
+            if(currentPosition == 32) {
+                currentPosition=0;
+                currentInt++;
+            }
+        }
+    }
+
+    /**
+     * Get bits from an array at the correct position
+     */
+    public static int getBits(int[] array, int index, int numBits) {
+        int value = 0;
+        int currentInt = index/32;
+        int currentPosition = index % 32;
+        for(int count = 0; count < numBits; count++) {
+            value = value>>1;
+            value |= getBit(array[currentInt], currentPosition)? 1<<(numBits-1):0;
+            currentPosition++;
+            if(currentPosition == 32) {
+                currentPosition=0;
+                currentInt++;
+            }
+        }
+        return value;
     }
 
     public MapLocation getEnemyBaseLocation() {

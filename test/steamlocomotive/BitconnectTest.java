@@ -44,6 +44,6 @@ public class BitconnectTest {
         Bitconnect.HQSurroundings result = Bitconnect.HQSurroundings.fromMessage(block, rc.getTeam());
 
         assertTrue(surroundings.equals(result));
-        assertEquals(1, surroundings.adjacentWallSpots.length);
+        assertEquals(1, surroundings.adjacentWallSpots.size());
     }
 }
