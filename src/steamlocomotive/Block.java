@@ -48,20 +48,25 @@ public class Block {
     }
 
     /**
-     * Verify that a checksum is valid for a message of 7 ints
+     * Verify that a checksum is valid for a message of 6 ints
      */
     private static boolean correctChecksum(int[] message, int checksum, Team team) {
-        if(team == Team.A) {
-            return checksum == 6123412;
+        int correct = (team == Team.A) ? 6123412:32742361;
+        for(int val: message) {
+            correct^=val;
         }
-        return checksum == 32742361;
+        return correct == checksum;
     }
 
     /**
      * Compute a checksum from a 6 int message
      */
     private static int computeChecksum(int[] message, Team team) {
-        return team == Team.A ? 6123412 : 32742361;
+        int val = (team == Team.A) ? 6123412 : 32742361;
+        for(int msg: message) {
+            val^=msg;
+        }
+        return val;
     }
 
     /**

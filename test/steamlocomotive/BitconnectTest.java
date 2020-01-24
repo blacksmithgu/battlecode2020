@@ -36,7 +36,7 @@ public class BitconnectTest {
         bitconnect.sendLandscaperLocations(rc, surroundings);
         Block block = bitconnect.blocksToSend.pop();
 
-        int[] expectedBlock = {42,1,2,4,0,0,6123412};
+        int[] expectedBlock = {42,1,2,4,0,0,6123412^42^1^2^4};
         Block expected = Block.extractBlock(expectedBlock, rc.getTeam());
 
         assertArrayEquals(expected.content, block.content);
