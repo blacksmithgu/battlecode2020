@@ -282,8 +282,8 @@ public strictfp class DeliveryDrone extends Unit {
                     }
                 } else if (nearbyRobot.type == RobotType.LANDSCAPER) {
                     boolean onWall = false;
-                    for (int i = 0; i < wallLocations.adjacentWallSpots.length; i++) {
-                        if (nearbyRobot.location.equals(wallLocations.adjacentWallSpots[i])) {
+                    for (int i = 0; i < wallLocations.adjacentWallSpots.size(); i++) {
+                        if (nearbyRobot.location.equals(wallLocations.adjacentWallSpots.get(i))) {
                             onWall = true;
                             break;
                         }
@@ -323,8 +323,8 @@ public strictfp class DeliveryDrone extends Unit {
         for (RobotInfo rob : robots) {
             if (rob.type == RobotType.LANDSCAPER) {
                 boolean onWall = false;
-                for (int i = 0; i < wallLocations.adjacentWallSpots.length; i++) {
-                    if (rob.location.equals(wallLocations.adjacentWallSpots[i])) {
+                for (int i = 0; i < wallLocations.adjacentWallSpots.size(); i++) {
+                    if (rob.location.equals(wallLocations.adjacentWallSpots.get(i))) {
                         onWall = true;
                         break;
                     }
@@ -382,16 +382,16 @@ public strictfp class DeliveryDrone extends Unit {
         if (!rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.ROAMING, false);
 
         // Find which wall location to transition to; if every location is occupied, then give up and roam.
-        MapLocation targetLoc = wallLocations.adjacentWallSpots[wallIdxTarget];
+        MapLocation targetLoc = wallLocations.adjacentWallSpots.get(wallIdxTarget);
         while (rc.canSenseLocation(targetLoc) && rc.isLocationOccupied(targetLoc)) {
             if (rc.senseRobotAtLocation(targetLoc).team != rc.getTeam() && rc.senseRobotAtLocation(targetLoc).type.canBePickedUp()) {
                 return new Transition(DroneState.DROPOFF_FRIENDLY, false);
             }
             wallIdxTarget += 1;
-            if (wallIdxTarget >= wallLocations.adjacentWallSpots.length) {
+            if (wallIdxTarget >= wallLocations.adjacentWallSpots.size()) {
                 return new Transition(DroneState.DROPOFF_FRIENDLY, false);
             } else {
-                targetLoc = wallLocations.adjacentWallSpots[wallIdxTarget];
+                targetLoc = wallLocations.adjacentWallSpots.get(wallIdxTarget);
             }
         }
 
@@ -477,7 +477,7 @@ public strictfp class DeliveryDrone extends Unit {
 
 
         //If it's after a certain round and the wall has not been built, transition to ferrying a landscaper
-        if (wallLocations != null && wallIdxTarget != wallLocations.adjacentWallSpots.length && rc.getRoundNum() > 200 && !comms.isWallDone(rc) && closestFriendlyLandscaper != null && !rc.isCurrentlyHoldingUnit()) {
+        if (wallLocations != null && wallIdxTarget != wallLocations.adjacentWallSpots.size() && rc.getRoundNum() > 200 && !comms.isWallDone(rc) && closestFriendlyLandscaper != null && !rc.isCurrentlyHoldingUnit()) {
             return new Transition(DroneState.FINDING_LANDSCAPER, false);
         }
 
