@@ -128,6 +128,13 @@ public class HQ extends Unit {
             wallSpots.add(new MapLocation(3,1));
             wallSpots.add(new MapLocation(3,0));
 
+        } if(us.x == 1 && us.y == 2) {
+            wallSpots.add(new MapLocation(2,0));
+            wallSpots.add(new MapLocation(2,1));
+            wallSpots.add(new MapLocation(2,2));
+            wallSpots.add(new MapLocation(2,3));
+            wallSpots.add(new MapLocation(1,3));
+            wallSpots.add(new MapLocation(0,3));
         } else if(us.x == 2 && us.y == height - 2) {
             wallSpots.add(new MapLocation(0,height-3));
             wallSpots.add(new MapLocation(1,height-3));
@@ -135,6 +142,41 @@ public class HQ extends Unit {
             wallSpots.add(new MapLocation(3,height-3));
             wallSpots.add(new MapLocation(3,height-2));
             wallSpots.add(new MapLocation(3,height-1));
+        } else if(us.x == width-2 && us.y == 2) {
+            wallSpots.add(new MapLocation(width-3,0));
+            wallSpots.add(new MapLocation(width-3,1));
+            wallSpots.add(new MapLocation(width-3,2));
+            wallSpots.add(new MapLocation(width-3,3));
+            wallSpots.add(new MapLocation(width-2,3));
+            wallSpots.add(new MapLocation(width-1,3));
+        } else if (us.x == width-3 && us.y == 1) {
+            wallSpots.add(new MapLocation(width-4,0));
+            wallSpots.add(new MapLocation(width-4,1));
+            wallSpots.add(new MapLocation(width-4,2));
+            wallSpots.add(new MapLocation(width-3,2));
+            wallSpots.add(new MapLocation(width-2,2));
+            wallSpots.add(new MapLocation(width-1,2));
+        } else if (us.x == 1 && us.y == height-3) {
+            wallSpots.add(new MapLocation(0,height-4));
+            wallSpots.add(new MapLocation(1,height-4));
+            wallSpots.add(new MapLocation(2,height-4));
+            wallSpots.add(new MapLocation(2,height-3));
+            wallSpots.add(new MapLocation(2,height-2));
+            wallSpots.add(new MapLocation(2,height-1));
+        } else if (us.x == width-3 && us.y==height-2)  {
+            wallSpots.add(new MapLocation(width-4, height-1));
+            wallSpots.add(new MapLocation(width-4, height-2));
+            wallSpots.add(new MapLocation(width-4, height-3));
+            wallSpots.add(new MapLocation(width-3, height-3));
+            wallSpots.add(new MapLocation(width-2, height-3));
+            wallSpots.add(new MapLocation(width-1, height-3));
+        } else if (us.x == width-2 && us.y==height-3)  {
+            wallSpots.add(new MapLocation(width-1, height-4));
+            wallSpots.add(new MapLocation(width-2, height-4));
+            wallSpots.add(new MapLocation(width-3, height-4));
+            wallSpots.add(new MapLocation(width-3, height-3));
+            wallSpots.add(new MapLocation(width-3, height-2));
+            wallSpots.add(new MapLocation(width-3, height-1));
         } else {
             for (int xOffset = -1; xOffset <= 1; xOffset++) {
                 for (int yOffset = -1; yOffset <= 1; yOffset++) {
