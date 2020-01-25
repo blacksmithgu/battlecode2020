@@ -35,7 +35,6 @@ public class DesignSchool extends Unit {
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
         if (rc.getRoundNum() < 150 && numLandscapersBuilt < 2) {
             buildLandscaperBasic(rc);
-            return;
         }
 
         // TODO:  Ensure that there won't be multiple design schools doing this
@@ -73,43 +72,14 @@ public class DesignSchool extends Unit {
 
     public void buildLandscaperBasic(RobotController rc) throws GameActionException {
         /*
-        Basic landscaper building behavior. Cycles through all the directions, builds landscaper in the first direction it can.
+        Basic drone building behavior. Cycles through all the directions, builds landscaper in the first direction it can.
          */
-        if (friendlyHQLoc != null){
-            if (rc.canBuildRobot(RobotType.LANDSCAPER, rc.getLocation().directionTo(friendlyHQLoc))){
-                rc.buildRobot(RobotType.LANDSCAPER, rc.getLocation().directionTo(friendlyHQLoc));
+        for (Direction adj : Direction.allDirections()) {
+            if (adj == Direction.CENTER) continue;
+            if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
+                rc.buildRobot(RobotType.LANDSCAPER, adj);
                 numLandscapersBuilt++;
                 return;
-            }
-            else if (rc.canBuildRobot(RobotType.LANDSCAPER, rc.getLocation().directionTo(friendlyHQLoc).rotateLeft())){
-                rc.buildRobot(RobotType.LANDSCAPER, rc.getLocation().directionTo(friendlyHQLoc).rotateLeft());
-                numLandscapersBuilt++;
-                return;
-            }
-            else if (rc.canBuildRobot(RobotType.LANDSCAPER, rc.getLocation().directionTo(friendlyHQLoc).rotateRight())){
-                rc.buildRobot(RobotType.LANDSCAPER, rc.getLocation().directionTo(friendlyHQLoc).rotateRight());
-                numLandscapersBuilt++;
-                return;
-            }
-            else {
-                for (Direction adj : Direction.allDirections()) {
-                    if (adj == Direction.CENTER) continue;
-                    if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
-                        rc.buildRobot(RobotType.LANDSCAPER, adj);
-                        numLandscapersBuilt++;
-                        return;
-                    }
-                }
-            }
-        }
-        else {
-            for (Direction adj : Direction.allDirections()) {
-                if (adj == Direction.CENTER) continue;
-                if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
-                    rc.buildRobot(RobotType.LANDSCAPER, adj);
-                    numLandscapersBuilt++;
-                    return;
-                }
             }
         }
         return;
