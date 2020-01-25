@@ -34,14 +34,7 @@ public class DesignSchool extends Unit {
         // Similarly to drones, this should be insurance against rush.
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
         if (rc.getRoundNum() < 150 && numLandscapersBuilt < 2) {
-            for (Direction adj : Direction.allDirections()) {
-                if (adj == Direction.CENTER) continue;
-                if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
-                    rc.buildRobot(RobotType.LANDSCAPER, adj);
-                    numLandscapersBuilt++;
-                    return;
-                }
-            }
+            buildLandscaperBasic(rc);
         }
 
         // TODO:  Ensure that there won't be multiple design schools doing this
@@ -52,7 +45,6 @@ public class DesignSchool extends Unit {
         // Added +50 so this doesn't kill our early econ and prevent any drone building
         if (isNearHQ && numLandscapersBuilt < wallLocations.adjacentWallSpots.size() && rc.getTeamSoup() >= RobotType.REFINERY.cost + 20) {
             buildLandscaperBasic(rc);
-            numLandscapersBuilt++;
             return;
         }
 
@@ -61,7 +53,6 @@ public class DesignSchool extends Unit {
         if (isNearHQ && rc.canSenseLocation(friendlyHQLoc)) {
             if (rc.getTeamSoup() >= RobotType.LANDSCAPER.cost + 10 && hqNeedsHelp(rc, friendlyHQLoc, nearbyRobots, schoolTeam)) {
                     buildLandscaperBasic(rc);
-                    numLandscapersBuilt++;
                     return;
             }
         }
@@ -87,6 +78,7 @@ public class DesignSchool extends Unit {
             if (adj == Direction.CENTER) continue;
             if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
                 rc.buildRobot(RobotType.LANDSCAPER, adj);
+                numLandscapersBuilt++;
                 return;
             }
         }
