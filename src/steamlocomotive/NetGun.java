@@ -1,6 +1,8 @@
 package steamlocomotive;
 
-import battlecode.common.*;
+import battlecode.common.GameActionException;
+import battlecode.common.RobotController;
+import battlecode.common.RobotType;
 
 public class NetGun extends Unit {
 
@@ -10,6 +12,8 @@ public class NetGun extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
+        if (!rc.isReady()) return;
+
         NetGun.findAndShoot(rc);
     }
 

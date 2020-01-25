@@ -1,6 +1,8 @@
 package steamlocomotive;
 
-import battlecode.common.*;
+import battlecode.common.Clock;
+import battlecode.common.GameActionException;
+import battlecode.common.RobotController;
 
 /**
  * Core class which is run for every unit. Checks which actual unit type it is
@@ -45,22 +47,18 @@ public strictfp class RobotPlayer {
             // Try/catch to avoid crashing the unit if it encounters an exception.
             // Try not to throw exceptions in the first place.
             try {
-                // We can consider allowing communication & execution if the robot
-                // is not ready via another method; for now do nothing.
-                if (rc.isReady()) {
-                    int bround = rc.getRoundNum();
-                    int bbytes = Clock.getBytecodeNum() + bround * rc.getType().bytecodeLimit;
-                    unit.run(rc, turn);
-                    int around = rc.getRoundNum();
-                    int abytes = Clock.getBytecodeNum() + rc.getRoundNum() * rc.getType().bytecodeLimit;
+                int bround = rc.getRoundNum();
+                int bbytes = Clock.getBytecodeNum() + bround * rc.getType().bytecodeLimit;
+                unit.run(rc, turn);
+                int around = rc.getRoundNum();
+                int abytes = Clock.getBytecodeNum() + rc.getRoundNum() * rc.getType().bytecodeLimit;
 
-                    if (bround != around)  {
-                        // Check for timeouts so we can warn appropriately.
-                        System.out.printf("Robot %s timed out (round %d -> %d, %d bytecodes)%n", rc.getType(), bround, around, abytes - bbytes);
-                    }
-
-                    // TODO: Consider adding a 'low utilization' warning.
+                if (bround != around)  {
+                    // Check for timeouts so we can warn appropriately.
+                    System.out.printf("Robot %s timed out (round %d -> %d, %d bytecodes)%n", rc.getType(), bround, around, abytes - bbytes);
                 }
+
+                // TODO: Consider adding a 'low utilization' warning.
 
                 // Wait until the start of the next turn.
                 Clock.yield();

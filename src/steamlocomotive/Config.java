@@ -11,9 +11,9 @@ public class Config {
     // GLOBAL CONFIG
 
     /**
-     * The amount of soup used for communications.
+     * The amount of soup used for communications (for now).
      */
-    public static final int SOUP_FOR_COMS = 10;
+    public static final int COMMS_COST = 3;
 
     // HQ CONFIG
 
@@ -21,11 +21,6 @@ public class Config {
      * Number of rounds until we save for refinery.
      */
     public static final int MIN_REFINERY_ROUND = 30;
-
-    /**
-     * The round the HQ decides how to build the wall around itself
-     */
-    public static final int HQ_WALL_PLANNING_ROUND = 1;
 
     // MINER CONFIG
 

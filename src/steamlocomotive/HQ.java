@@ -2,25 +2,21 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * Responsible for spawning miners and planning high-level strategic things.
  */
 public class HQ extends Unit {
 
+    public static final int RETRANSMIT_FREQUENCY = 40;
+
     // Number of miners which have been spawned.
     private int numMiners = 0;
 
-    // HQ wall information.
-    private Bitconnect.HQSurroundings wall;
+    // If true, we've planned out the wall successfully.
+    private boolean planningDone = false;
 
     // comms
     private Bitconnect comms;
-
-    //enemy HQ location
-    private MapLocation enemyHq;
 
     public HQ(int id) {
         super(id);
@@ -28,35 +24,27 @@ public class HQ extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
-        // Read the blockchain for any status updates (and send any queued messages).
-        comms.updateForTurn(rc);
-
         // Compute the wall on the appropriate turn.
-        if (rc.getRoundNum() == Config.HQ_WALL_PLANNING_ROUND) {
-            this.wall = this.computeWall(rc);
-            comms.sendLandscaperLocations(rc, this.wall);
+        if (!planningDone) {
+            DynamicArray<MapLocation> wallLocs = this.computeWall(rc);
+            comms.notifyHqSurroundings(rc.getLocation(), wallLocs);
+            planningDone = true;
         }
 
         // Consistently send out HQ wall information on a regular basis for newly created landscapers.
-        if (turn % 40 == 0) {
-            boolean allDone = true;
-            for (MapLocation loc : this.wall.adjacentWallSpots) {
-                RobotInfo rob = rc.senseRobotAtLocation(loc);
-                if (rob == null || rob.type != RobotType.LANDSCAPER || rob.team != rc.getTeam()) {
-                    allDone = false;
-                    break;
-                }
-            }
+        if (turn % RETRANSMIT_FREQUENCY == 0) {
+            // If wall is done, notify landscapers.
+            if (this.isWallDone(rc)) comms.notifyWallDone(true);
 
-            if (allDone) comms.wallClaimed(rc);
-
-            // If don't know where enemyHq is, look for it on comms
-            // If know where enemyHq is, periodically broadcast it for everyone else
-            if (this.enemyHq == null && comms.getEnemyBaseLocation() != null) {
-                this.enemyHq = comms.getEnemyBaseLocation();
-            } else if (this.enemyHq != null && rc.getRoundNum() % 21 == 0) comms.setEnemyBaseLocation(this.enemyHq);
+            // If enemy HQ has been found, notify this.
+            if (comms.enemyHq() != null) comms.notifyEnemyBase(comms.enemyHq());
         }
 
+        // Read the blockchain for any status updates (and send any queued messages).
+        comms.updateForTurn(rc);
+
+        // If we can't take actions this turn, do nothing else.
+        if (!rc.isReady()) return;
         // Aggressively shoot down enemy drones if they roam too closely.
         if (NetGun.findAndShoot(rc)) return;
 
@@ -114,8 +102,8 @@ public class HQ extends Unit {
     /**
      * Compute the wall tiles around the HQ.
      */
-    public Bitconnect.HQSurroundings computeWall(RobotController rc) {
-        List<MapLocation> wallSpots = new ArrayList<>(8);
+    public DynamicArray<MapLocation> computeWall(RobotController rc) {
+        DynamicArray<MapLocation> wallSpots = new DynamicArray<>(8);
         MapLocation us = rc.getLocation();
         int width = rc.getMapWidth();
         int height = rc.getMapHeight();
@@ -204,10 +192,21 @@ public class HQ extends Unit {
             }
         }
 
-        return new Bitconnect.HQSurroundings(rc.getLocation(), wallSpots.toArray(new MapLocation[0]), rc.getTeam());
+        return wallSpots;
+    }
+
+    /** Checks if landscapers are on all wall tiles. */
+    public boolean isWallDone(RobotController rc) throws GameActionException {
+        for (MapLocation loc : comms.walls()) {
+            RobotInfo rob = rc.senseRobotAtLocation(loc);
+            if (rob == null || rob.type != RobotType.LANDSCAPER || rob.team != rc.getTeam())
+                return false;
+        }
+
+        return true;
     }
 
     public void onCreation(RobotController rc) throws GameActionException {
-        comms = new Bitconnect(rc, rc.getMapWidth(), rc.getMapHeight());
+        this.comms = Bitconnect.initialize(rc);
     }
 }

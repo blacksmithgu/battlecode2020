@@ -107,12 +107,15 @@ public class DynamicArray<T> implements Iterable<T> {
     }
 
     public boolean contains(T obj) {
-        for(int index = 0; index < size; index++) {
-            if((obj == null && content[index] == null) || obj.equals(content[index])) {
-                return true;
-            }
+        return this.indexOf(obj) != -1;
+    }
+
+    public int indexOf(T obj) {
+        for (int index = 0; index < size; index++) {
+            if ((obj == null && content[index] == null) || obj.equals(content[index])) return index;
         }
-        return false;
+
+        return -1;
     }
 
     public DynamicArray(T[] arg) {
