@@ -2,6 +2,7 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,8 @@ public class Landscaper extends Unit {
     private MapLocation spawnLoc;
     // Target wall location
     private MapLocation targetWallLoc;
+    // Wall Bolster Locations
+    private ArrayList<MapLocation> bolsterLocations;
 
 
     // Updated per-round; the closest detected buriable enemy.
@@ -122,6 +125,42 @@ public class Landscaper extends Unit {
     }
 
     /**
+     * Returns where the landscaper should be trying to go to get into position on the wall
+     */
+    public MapLocation getWallTarget(RobotController rc) throws GameActionException {
+        MapLocation furthestSpot = null;
+        float dist = 0;
+        for (MapLocation loc : wallLocations.adjacentWallSpots) {
+            if (rc.canSenseLocation(loc) && (!rc.isLocationOccupied(loc)||rc.getLocation().equals(loc)) && Math.abs(rc.senseElevation(loc) - rc.senseElevation(rc.getLocation())) <= 3) {
+                int tempDist = spawnLoc.distanceSquaredTo(loc) + loc.x / 1000;
+                if (tempDist > dist) {
+                    dist = tempDist;
+                    furthestSpot = loc;
+                }
+            }
+        }
+        return furthestSpot;
+    }
+
+    /**
+     * Returns where the landscaper should be trying to go for bolstering
+     */
+    public MapLocation getBolsterTarget(RobotController rc) throws GameActionException {
+        MapLocation furthestSpot = null;
+        float dist = 0;
+        for (MapLocation loc : bolsterLocations) {
+            if (rc.canSenseLocation(loc) && (!rc.isLocationOccupied(loc)||rc.getLocation().equals(loc)) && Math.abs(rc.senseElevation(loc) - rc.senseElevation(rc.getLocation())) <= 100) {
+                int tempDist = spawnLoc.distanceSquaredTo(loc) + loc.x / 1000;
+                if (tempDist > dist) {
+                    dist = tempDist;
+                    furthestSpot = loc;
+                }
+            }
+        }
+        return furthestSpot;
+    }
+
+    /**
      * The landscaper is building a wall around HQ.
      */
     public LandscaperState buildWall(RobotController rc) throws GameActionException {
@@ -133,7 +172,6 @@ public class Landscaper extends Unit {
 
         //If cannot move further but sees a spot further, equalize elevation to that spot to eventually move there
 
-        //If cannot move further then build wall upwards
         if (!rc.canSenseLocation(this.hq)) {
             this.pathfinder = this.newPathfinder(this.hq, true);
             Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
@@ -142,32 +180,94 @@ public class Landscaper extends Unit {
                 return LandscaperState.BUILD_WALL;
             }
         }
-        if (isWallLocation(rc, rc.getLocation())) {
-            if (coreWallDone(rc)) {
-                if (wallCornersFull(rc)) {
-                    return Landscaper.LandscaperState.TERRAFORM;
-                } else {
-                    // Move to the corners to reinforce
-                }
+        if (coreWallDone(rc) && !isWallLocation(rc, rc.getLocation())) {
+            if (wallCornersFull(rc) && !isWallBolsterLocation(rc, rc.getLocation())) {
+                return LandscaperState.TERRAFORM;
             } else {
-                if (rc.getLocation().distanceSquaredTo(targetWallLoc) == 0) {
-                    MapLocation furthestSpot = rc.getLocation();
-                    float dist = spawnLoc.distanceSquaredTo(rc.getLocation()) + rc.getLocation().x / 1000;;
-                    for (MapLocation loc : wallLocations.adjacentWallSpots) {
-                        if (rc.canSenseLocation(loc) && !rc.isLocationOccupied(loc) && Math.abs(rc.senseElevation(loc) - rc.senseElevation(rc.getLocation())) <= 3) {
-                            int tempDist = spawnLoc.distanceSquaredTo(loc) + loc.x / 1000;
-                            if (tempDist > dist) {
-                                dist = tempDist;
-                                furthestSpot = loc;
+                MapLocation bolsterTarget = getBolsterTarget(rc);
+                rc.setIndicatorLine(rc.getLocation(),bolsterTarget,0,255,0);
+                if (rc.getLocation().distanceSquaredTo(bolsterTarget) == 0) {
+                    //dig
+                    if (rc.senseElevation(rc.getLocation()) < 20) {
+                        //need to raise current elevation
+                        if (rc.canDepositDirt(Direction.CENTER)) {
+                            rc.depositDirt(Direction.CENTER);
+                            return LandscaperState.BUILD_WALL;
+                        } else {
+                            Direction digFrom = wallDigFrom(rc);
+                            if (digFrom != null && rc.canDigDirt(digFrom)) {
+                                rc.digDirt(digFrom);
+                                return LandscaperState.BUILD_WALL;
+                            }
+                        }
+                    } else {
+                        //build on main wall
+                        Direction lowestWall = Direction.CENTER;
+                        int lowestHeight = rc.senseElevation(rc.getLocation());
+                        for (Direction dir : Direction.allDirections()) {
+                            if (dir == Direction.CENTER) continue;
+                            MapLocation loc = rc.getLocation().add(dir);
+                            if (!rc.canSenseLocation(loc)) continue;
+                            if (isWallLocation(rc, loc) && rc.senseElevation(loc) < lowestHeight) {
+                                lowestHeight = rc.senseElevation(loc);
+                                lowestWall = dir;
+                            }
+                        }
+
+                        if (rc.canDepositDirt(lowestWall)) {
+                            rc.depositDirt(lowestWall);
+                            return LandscaperState.BUILD_WALL;
+                        } else {
+                            Direction digFrom = wallDigFrom(rc);
+                            if (digFrom != null && rc.canDigDirt(digFrom)) {
+                                rc.digDirt(digFrom);
+                                return LandscaperState.BUILD_WALL;
                             }
                         }
                     }
-                    targetWallLoc = furthestSpot;
+                } else {
+                    if (rc.getLocation().distanceSquaredTo(bolsterTarget) == 2 && Math.abs(rc.senseElevation(bolsterTarget) - rc.senseElevation(rc.getLocation())) > 3) {
+                        if (rc.canDepositDirt(rc.getLocation().directionTo(bolsterTarget))) {
+                            rc.depositDirt(rc.getLocation().directionTo(bolsterTarget));
+                            return LandscaperState.BUILD_WALL;
+                        } else {
+                            Direction digFrom = wallDigFrom(rc);
+                            if (digFrom != null && rc.canDigDirt(digFrom)) {
+                                rc.digDirt(digFrom);
+                                return LandscaperState.BUILD_WALL;
+                            }
+                        }
+                    }
+                    this.pathfinder = this.newPathfinder(bolsterTarget, false);
+                    Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+                    if (move != null && move != Direction.CENTER) {
+                        rc.move(move);
+                        return LandscaperState.BUILD_WALL;
+                    }
+                }
+            }
+        } else {
+            //if on wall, move to target
+            if (isWallLocation(rc, rc.getLocation())){
+                MapLocation wallTarget = getWallTarget(rc);
+                if (rc.getLocation().distanceSquaredTo(wallTarget) == 0) {
+                    //dig
+                    Direction lowestWall = Direction.CENTER;
+                    if (coreWallDone(rc) || rc.getRoundNum()>500){
+                        int lowestHeight = 10000;
+                        for (Direction dir : Direction.allDirections()) {
+                            if (dir == Direction.CENTER) continue;
+                            MapLocation loc = rc.getLocation().add(dir);
+                            if (!rc.canSenseLocation(loc)) continue;
+                            if (isWallLocation(rc, loc) && rc.senseElevation(loc) < lowestHeight) {
+                                lowestHeight = rc.senseElevation(loc);
+                                lowestWall = dir;
+                            }
+                        }
+                    }
 
-
-
-                    if (rc.canDepositDirt(Direction.CENTER)) {
-                        rc.depositDirt(Direction.CENTER);
+                    if (rc.canDepositDirt(lowestWall)) {
+                        rc.depositDirt(lowestWall);
                         return LandscaperState.BUILD_WALL;
                     } else {
                         Direction digFrom = wallDigFrom(rc);
@@ -177,45 +277,52 @@ public class Landscaper extends Unit {
                         }
                     }
                 } else {
-                    MapLocation furthestSpot = rc.getLocation();
-                    float dist = -1;
-                    for (MapLocation loc : wallLocations.adjacentWallSpots) {
-                        if (rc.canSenseLocation(loc) && !rc.isLocationOccupied(loc) && Math.abs(rc.senseElevation(loc) - rc.senseElevation(rc.getLocation())) <= 3) {
-                            int tempDist = spawnLoc.distanceSquaredTo(loc) + loc.x / 1000;
-                            if (tempDist > dist) {
-                                dist = tempDist;
-                                furthestSpot = loc;
-                            }
-                        }
-                    }
-                    if (dist == -1) {
-                        System.out.println("no valid wall lcoations!!");
-                    }
-                    targetWallLoc = furthestSpot;
-                    System.out.println("moving to " + furthestSpot);
-                    this.pathfinder = this.newPathfinder(furthestSpot, false);
+                    this.pathfinder = this.newPathfinder(wallTarget, false);
                     Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
                     if (move != null && move != Direction.CENTER) {
-                        // don't leave the wall if already on it
-                        if (isWallLocation(rc, rc.adjacentLocation(move))) {
-                            rc.move(move);
-                            return LandscaperState.BUILD_WALL;
-                        }
+                        rc.move(move);
+                        return LandscaperState.BUILD_WALL;
                     }
+
                 }
 
+            } else {
+                this.pathfinder = this.newPathfinder(this.hq, true);
+                Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
+                if (move != null && move != Direction.CENTER) {
+                    rc.move(move);
+                    return LandscaperState.BUILD_WALL;
+                }
             }
-        } else {
-            System.out.println("getting on wall");
-            this.pathfinder = this.newPathfinder(this.hq, true);
-            Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
-            if (move != null && move != Direction.CENTER) {
-                rc.move(move);
+
+
+        }
+        //stuck on wall and can't get further back on wall so build up current wall location
+        if (isWallLocation(rc,rc.getLocation())){
+            Direction lowestWall = Direction.CENTER;
+            if (coreWallDone(rc) || rc.getRoundNum()>500){
+                int lowestHeight = rc.senseElevation(rc.getLocation());
+                for (Direction dir : Direction.allDirections()) {
+                    if (dir == Direction.CENTER) continue;
+                    MapLocation loc = rc.getLocation().add(dir);
+                    if (!rc.canSenseLocation(loc)) continue;
+                    if (isWallLocation(rc, loc) && rc.senseElevation(loc) < lowestHeight) {
+                        lowestHeight = rc.senseElevation(loc);
+                        lowestWall = dir;
+                    }
+                }
+            }
+            if (rc.canDepositDirt(lowestWall)) {
+                rc.depositDirt(lowestWall);
                 return LandscaperState.BUILD_WALL;
+            } else {
+                Direction digFrom = wallDigFrom(rc);
+                if (digFrom != null && rc.canDigDirt(digFrom)) {
+                    rc.digDirt(digFrom);
+                    return LandscaperState.BUILD_WALL;
+                }
             }
         }
-
-
         return LandscaperState.BUILD_WALL;
     }
 
@@ -235,19 +342,22 @@ public class Landscaper extends Unit {
         for (int i = 0; i < 4; i++) {
             MapLocation possibleLocation = this.hq.add(digFrom).add(digFrom);
             if (rc.onTheMap(possibleLocation) && rc.getLocation().distanceSquaredTo(possibleLocation) <= 2 && rc.canDigDirt(rc.getLocation().directionTo(possibleLocation))) {
+                System.out.println("digging from " + possibleLocation);
                 return rc.getLocation().directionTo(possibleLocation);
             }
-            digFrom.rotateRight();
-            digFrom.rotateRight();
+            digFrom = digFrom.rotateRight();
+            digFrom = digFrom.rotateRight();
         }
         for (Direction dir : Direction.allDirections()) {
-            if (!isWallLocation(rc, rc.adjacentLocation(dir)) && rc.canDigDirt(dir) && !rc.isLocationOccupied(rc.adjacentLocation(dir))) {
+            if (!isWallBolsterLocation(rc, rc.adjacentLocation(dir)) && !isWallLocation(rc, rc.adjacentLocation(dir)) && rc.canDigDirt(dir) && !rc.isLocationOccupied(rc.adjacentLocation(dir))) {
+                System.out.println("digging from " + dir);
                 return dir;
             }
         }
         //TODO maybe add logic to not unbury enemy buildings? very unlikely this would ever happen though
         for (Direction dir : Direction.allDirections()) {
             if (!isWallLocation(rc, rc.adjacentLocation(dir)) && rc.canDigDirt(dir)) {
+                System.out.println("digging from last choice " + dir);
                 return dir;
             }
         }
@@ -264,12 +374,61 @@ public class Landscaper extends Unit {
         return false;
     }
 
-    public boolean coreWallDone(RobotController rc) {
+    public boolean isWallBolsterLocation(RobotController rc, MapLocation myLoc) {
+        if (myLoc.distanceSquaredTo(this.hq) >= 4 && myLoc.distanceSquaredTo(this.hq) < 9) {
+            return true;
+        }
         return false;
     }
 
-    public boolean wallCornersFull(RobotController rc) {
+    public boolean isIdealWallDigLocation(RobotController rc, MapLocation myLoc) {
+        Direction digFrom = Direction.NORTH;
+        for (int i = 0; i < 4; i++) {
+            MapLocation possibleLocation = this.hq.add(digFrom).add(digFrom);
+            if (myLoc.distanceSquaredTo(possibleLocation) == 0) {
+                return true;
+            }
+            digFrom = digFrom.rotateRight();
+            digFrom = digFrom.rotateRight();
+        }
         return false;
+    }
+
+    public ArrayList<MapLocation> computeBolster(RobotController rc) {
+        ArrayList<MapLocation> bolsterLoc = new ArrayList<MapLocation>();
+        for (MapLocation loc : wallLocations.adjacentWallSpots) {
+            Direction start = loc.directionTo(this.hq).opposite().rotateLeft();
+            for (int i = 0; i < 3; i++) {
+                if (rc.onTheMap(loc.add(start)) && !isIdealWallDigLocation(rc, loc.add(start))) {
+                    if (!bolsterLoc.contains(loc.add(start))) {
+                        bolsterLoc.add(loc.add(start));
+                        rc.setIndicatorDot(loc.add(start), 255, 0, 0);
+                    }
+                }
+                start = start.rotateRight();
+            }
+        }
+        System.out.println(bolsterLoc);
+        return bolsterLoc;
+    }
+
+
+    public boolean coreWallDone(RobotController rc) throws GameActionException {
+        for (MapLocation loc : wallLocations.adjacentWallSpots) {
+            if (rc.canSenseLocation(loc) && !rc.isLocationOccupied(loc)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean wallCornersFull(RobotController rc) throws GameActionException {
+        for (MapLocation loc : bolsterLocations) {
+            if (rc.canSenseLocation(loc) && !rc.isLocationOccupied(loc)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -281,12 +440,13 @@ public class Landscaper extends Unit {
         this.hq = comms.ourHQSurroundings.hq;
         if (this.hq != null) {
             wallLocations = computeWall(rc);
+            bolsterLocations = computeBolster(rc);
             targetWallLoc = this.hq;
         }
 
         spawnLoc = rc.getLocation();
 
-        if (comms.isWallDone(rc)) state = LandscaperState.TERRAFORM;
+        //if (comms.isWallDone(rc)) state = LandscaperState.TERRAFORM;
     }
 
     /**
