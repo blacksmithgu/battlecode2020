@@ -471,10 +471,10 @@ public class Miner extends Unit {
         }
 
         // If things go wrong somehow, the miner defaults to wanting to build a vaporator
-        RobotType typeToBuild = RobotType.VAPORATOR;
+        RobotType typeToBuild = RobotType.DESIGN_SCHOOL;
         // Scan the nearby surroundings for a good place within a few steps of us to build our building.
         if (this.pathfinder == null) {
-            if (buildDesign && rc.getLocation().distanceSquaredTo(hq) < 60) typeToBuild = RobotType.DESIGN_SCHOOL;
+            if (buildDesign && rc.getLocation().distanceSquaredTo(hq) < 80) typeToBuild = RobotType.DESIGN_SCHOOL;
             else if (buildFulfillment && rc.getLocation().distanceSquaredTo(hq) < 60) typeToBuild = RobotType.FULFILLMENT_CENTER;
             else if (buildVaporator) typeToBuild = RobotType.VAPORATOR;
             else if (buildFulfillment) typeToBuild = RobotType.FULFILLMENT_CENTER;
@@ -583,7 +583,7 @@ public class Miner extends Unit {
             this.enemyHq = this.symmetryHq[0];
         }
 
-        if (rc.getRoundNum() > 200 || rc.getID() % 5 == rc.getRoundNum() % 5) isBaseBuilder = true;
+        if (rc.getRoundNum() > 200 || rc.getID() % 4 == rc.getRoundNum() % 4) isBaseBuilder = true;
         else isBaseBuilder = false;
     }
 
@@ -596,8 +596,7 @@ public class Miner extends Unit {
         if (!rc.canSenseLocation(loc)) return false;
 
         // The building must be at least a minimum distance from our HQ.
-        if (desiredBuilding != RobotType.DESIGN_SCHOOL && loc.distanceSquaredTo(this.hq) < Config.BUILD_BUILDING_MIN_HQ_DIST) return false;
-        else if (desiredBuilding == RobotType.DESIGN_SCHOOL && loc.distanceSquaredTo(this.hq) < 4) return false;
+        if (loc.distanceSquaredTo(this.hq) < Config.BUILD_BUILDING_MIN_HQ_DIST) return false;
         // The building must be at least a minimum distance from any other observed buildings.
         for (RobotInfo robot : sensed) {
             if (robot.type.canBePickedUp()) {
@@ -638,9 +637,15 @@ public class Miner extends Unit {
 
                 MapLocation loc = new MapLocation(us.x + dx, us.y + dy);
                 int dist = loc.distanceSquaredTo(rc.getLocation());
-                if (goodBuildingLocation(rc, loc, sensed, desiredBuilding) && dist < bestDistance) {
-                    bestDistance = dist;
-                    best = loc;
+                if (goodBuildingLocation(rc, loc, sensed, desiredBuilding)){
+                    if (desiredBuilding == RobotType.DESIGN_SCHOOL && loc.distanceSquaredTo(hq) <= 13 ) {
+                        best = loc;
+                        return best;
+                    }
+                    else if (dist < bestDistance) {
+                            bestDistance = dist;
+                            best = loc;
+                    }
                 }
             }
         }
