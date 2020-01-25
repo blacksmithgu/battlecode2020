@@ -35,7 +35,6 @@ public class DesignSchool extends Unit {
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
         if (rc.getRoundNum() < 150 && numLandscapersBuilt < 2) {
             buildLandscaperBasic(rc);
-            return;
         }
 
         // TODO:  Ensure that there won't be multiple design schools doing this
@@ -45,7 +44,6 @@ public class DesignSchool extends Unit {
         // Only does this building every other turn so that the first design school can get out its early drones
         // Added +50 so this doesn't kill our early econ and prevent any drone building
         if (isNearHQ && numLandscapersBuilt < wallLocations.adjacentWallSpots.size() && rc.getTeamSoup() >= RobotType.REFINERY.cost + 20) {
-            System.out.println("attempting to build landscaper");
             buildLandscaperBasic(rc);
             return;
         }
@@ -77,17 +75,13 @@ public class DesignSchool extends Unit {
         Basic drone building behavior. Cycles through all the directions, builds landscaper in the first direction it can.
          */
         for (Direction adj : Direction.allDirections()) {
-            //if (adj == Direction.CENTER) continue;
+            if (adj == Direction.CENTER) continue;
             if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
                 rc.buildRobot(RobotType.LANDSCAPER, adj);
                 numLandscapersBuilt++;
                 return;
-            } else {
-                if (rc.getTeamSoup()>200)
-                    System.out.println("can't build at :" + rc.adjacentLocation(adj));
             }
         }
-        System.out.println("failed to build");
         return;
     }
 
