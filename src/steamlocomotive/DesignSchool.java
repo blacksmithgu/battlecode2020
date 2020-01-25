@@ -34,14 +34,7 @@ public class DesignSchool extends Unit {
         // Similarly to drones, this should be insurance against rush.
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
         if (rc.getRoundNum() < 150 && numLandscapersBuilt < 2) {
-            for (Direction adj : Direction.allDirections()) {
-                if (adj == Direction.CENTER) continue;
-                if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
-                    rc.buildRobot(RobotType.LANDSCAPER, adj);
-                    numLandscapersBuilt++;
-                    return;
-                }
-            }
+            buildLandscaperBasic(rc);
         }
 
         // TODO:  Ensure that there won't be multiple design schools doing this
@@ -52,7 +45,6 @@ public class DesignSchool extends Unit {
         // Added +50 so this doesn't kill our early econ and prevent any drone building
         if (isNearHQ && numLandscapersBuilt < wallLocations.adjacentWallSpots.size() && rc.getTeamSoup() >= RobotType.REFINERY.cost + 20) {
             buildLandscaperBasic(rc);
-            numLandscapersBuilt++;
             return;
         }
 
@@ -61,7 +53,6 @@ public class DesignSchool extends Unit {
         if (isNearHQ && rc.canSenseLocation(friendlyHQLoc)) {
             if (rc.getTeamSoup() >= RobotType.LANDSCAPER.cost + 10 && hqNeedsHelp(rc, friendlyHQLoc, nearbyRobots, schoolTeam)) {
                     buildLandscaperBasic(rc);
-                    numLandscapersBuilt++;
                     return;
             }
         }
@@ -70,10 +61,10 @@ public class DesignSchool extends Unit {
         // This is the typical landscaper production behavior, same as drone production
         // Ramps up production rate based on the amount of soup. Over 2000 soup, it makes a drone every turn.
         // TODO: Make the round cutoffs and rates into easily-twiddled constants in Config
-        if (teamSoup >= RobotType.LANDSCAPER.cost && numLandscapersBuilt <= 10) {
+        if (teamSoup >= RobotType.VAPORATOR.cost && numLandscapersBuilt <= 10) {
             normalProduction(rc, teamSoup, myID, currentRound);
         }
-        else if (teamSoup >= RobotType.LANDSCAPER.cost && numLandscapersBuilt > 10) {
+        else if (teamSoup >= RobotType.VAPORATOR.cost && numLandscapersBuilt > 10) {
             halfProduction(rc, teamSoup, myID, currentRound);
         }
         return;
@@ -87,6 +78,7 @@ public class DesignSchool extends Unit {
             if (adj == Direction.CENTER) continue;
             if (rc.canBuildRobot(RobotType.LANDSCAPER, adj)) {
                 rc.buildRobot(RobotType.LANDSCAPER, adj);
+                numLandscapersBuilt++;
                 return;
             }
         }
@@ -155,19 +147,19 @@ public class DesignSchool extends Unit {
     public void productionTemplate(RobotController rc, int teamSoup, int myID, int currentRound, int rate, boolean faster) throws GameActionException{
         if (teamSoup >= RobotType.LANDSCAPER.cost) {
             if (!faster) {
-                if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_ONE) {
+                if (teamSoup < Config.LANDSCAPER_PROD_CHANGE_ROUND_ONE) {
                     int modulus = Config.LANDSCAPER_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_TWO) {
+                } else if (teamSoup < Config.LANDSCAPER_PROD_CHANGE_ROUND_TWO) {
                     int modulus = Config.LANDSCAPER_PROD_RATE_TWO * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_THREE) {
+                } else if (teamSoup < Config.LANDSCAPER_PROD_CHANGE_ROUND_THREE) {
                     int modulus = Config.LANDSCAPER_PROD_RATE_THREE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_FOUR) {
+                } else if (teamSoup < Config.LANDSCAPER_PROD_CHANGE_ROUND_FOUR) {
                     int modulus = Config.LANDSCAPER_PROD_RATE_FOUR * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup >= Config.LANDSCAPER_PROD_CHANGE_ROUND_FIVE) {
+                } else  {
                     buildLandscaperBasic(rc);
                 }
             }
@@ -184,7 +176,7 @@ public class DesignSchool extends Unit {
                 } else if (teamSoup > Config.LANDSCAPER_PROD_CHANGE_ROUND_FOUR) {
                     int modulus = Config.LANDSCAPER_PROD_RATE_FOUR / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildLandscaperBasic(rc);
-                } else if (teamSoup >= Config.LANDSCAPER_PROD_CHANGE_ROUND_FIVE) {
+                } else {
                     buildLandscaperBasic(rc);
                 }
             }

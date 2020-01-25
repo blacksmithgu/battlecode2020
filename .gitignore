@@ -1,7 +1,5 @@
+# Default gitignored files from the scaffold.
 dist/*
-build/*
-src/lectureplayer
-
 /matches
 /deploy/lib
 /deploy/bin
@@ -31,3 +29,6 @@ run.sh
 .classpath
 .project
 .settings/
+
+# Ghosted agent versions.
+src/steamlocomotive_*

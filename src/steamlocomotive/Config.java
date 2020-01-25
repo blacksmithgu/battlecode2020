@@ -97,7 +97,7 @@ public class Config {
     /**
      * The minimum distance vaporators should be from each other
      */
-    public static final int BUILD_VAP_MIN_DIST = 4;
+    public static final int BUILD_VAP_MIN_DIST = 2;
 
     /**
      * The min squared distance we build buildings away from the HQ.
@@ -130,8 +130,8 @@ public class Config {
     public static final int LANDSCAPER_PROD_CHANGE_ROUND_ONE = 500;
     public static final int LANDSCAPER_PROD_CHANGE_ROUND_TWO = 1000;
     public static final int LANDSCAPER_PROD_CHANGE_ROUND_THREE = 1500;
-    public static final int LANDSCAPER_PROD_CHANGE_ROUND_FOUR = 2000;
-    public static final int LANDSCAPER_PROD_CHANGE_ROUND_FIVE = 3000;
+    public static final int LANDSCAPER_PROD_CHANGE_ROUND_FOUR = 2500;
+
 
     public static final int LANDSCAPER_PROD_RATE_ONE = 32;
     public static final int LANDSCAPER_PROD_RATE_TWO = 16;
@@ -141,8 +141,8 @@ public class Config {
     public static final int DRONE_PROD_CHANGE_ROUND_ONE = 500;
     public static final int DRONE_PROD_CHANGE_ROUND_TWO = 1000;
     public static final int DRONE_PROD_CHANGE_ROUND_THREE = 1500;
-    public static final int DRONE_PROD_CHANGE_ROUND_FOUR = 2000;
-    public static final int DRONE_PROD_CHANGE_ROUND_FIVE = 3000;
+    public static final int DRONE_PROD_CHANGE_ROUND_FOUR = 2500;
+
 
     public static final int DRONE_PROD_RATE_ONE = 32;
     public static final int DRONE_PROD_RATE_TWO = 16;

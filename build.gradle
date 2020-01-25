@@ -318,5 +318,34 @@ task buildMap(type: JavaExec, dependsOn: 'build') {
     classpath = project.sourceSets.main.runtimeClasspath
 }
 
+/** Checks out a previous version of the agent to src/ for testing. Note this agent will be automatically gitignored. */
+task ghost {
+    description 'Creates a ghost checkout of a previous version of the bot, for running against.'
+    group 'battlecode'
+
+    doLast {
+        // Figure out which revision/tag we're checking out.
+        if (!project.hasProperty("revision")) throw new GradleException("Must provide a revision to checkout")
+        revision = project.property('revision')
+
+        // Use git-archive to create a repository archive, and save it somewhere temporary.
+        file("${buildDir}/ghost").mkdirs()
+        exec {
+            commandLine "git", "archive", "--format=zip", "--output=${buildDir}/ghost/sl-${revision}.zip", revision
+        }
+
+        // Extract src/steamlocomotive to the current directory, renaming it in the process.
+        copy {
+            from zipTree("${buildDir}/ghost/sl-${revision}.zip")
+            into project.getRootDir()
+            include 'src/steamlocomotive/**'
+            eachFile { fcd ->
+                fcd.relativePath = RelativePath.parse(!fcd.isDirectory(), fcd.relativePath.replaceFirst("steamlocomotive", "steamlocomotive_${revision}"))
+            }
+            filter { line -> line.replaceAll("package steamlocomotive;", "package steamlocomotive_${revision};")}
+        }
+    }
+}
+
 unpackClient32.onlyIf { arch32 }
 build.dependsOn('unpackClient32')

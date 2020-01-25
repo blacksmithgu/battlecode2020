@@ -48,6 +48,8 @@ public class Miner extends Unit {
     private MapLocation[] symmetryHq;
     // Index of which symmetric HQ location we are currently using
     private int enemyHqSymmetryIdx;
+    // Tracks whether the miner is a base builder
+    private boolean isBaseBuilder;
 
     public Miner(int id) {
         super(id);
@@ -244,8 +246,8 @@ public class Miner extends Unit {
 
     /** Implements roaming behavior, where the miner roams until it finds soup somewhere. */
     public MinerState roaming(RobotController rc) throws GameActionException {
-        // If miner spawned sufficiently late, it goes to base building
-        if (rc.getLocation().isAdjacentTo(hq) && rc.getRoundNum() >= 150) {
+        // If miner is a base builder, get to base building
+        if (isBaseBuilder) {
             return MinerState.BASE_BUILDING;
         }
 
@@ -257,6 +259,12 @@ public class Miner extends Unit {
 
         // If we have a lot of soup, consider building a building
         if (rc.getTeamSoup() > 1000) return MinerState.DREAMING_ABOUT_BUILDINGS;
+
+        // If it's sufficiently late in the game, transition to being a base builder
+        if (rc.getRoundNum() > 350) {
+            isBaseBuilder = true;
+            return MinerState.BASE_BUILDING;
+        }
 
         // Otherwise, roam around looking for soup and other objects of interest.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
@@ -302,6 +310,7 @@ public class Miner extends Unit {
         // If we've been travelling for too long, set all soup locations to null and roam
         if (this.pathfindSteps > 200) {
             soups.clearInvalid(rc, loc -> true);
+            this.pathfinder = null;
             return MinerState.ROAMING;
         }
 
@@ -374,7 +383,7 @@ public class Miner extends Unit {
 
         // Scan the nearby surroundings for a good place within a few steps of us to build our building.
         if (this.pathfinder == null) {
-            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE);
+            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE, RobotType.REFINERY);
 
             // No good locations, give up.
             if (best == null) return MinerState.TRAVEL;
@@ -414,7 +423,7 @@ public class Miner extends Unit {
 
         // Scan the nearby surroundings for a good place within a few steps of us to build our building.
         if (this.pathfinder == null) {
-            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE);
+            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE, RobotType.REFINERY);
 
             // No good locations, give up.
             if (best == null) return MinerState.DROPOFF;
@@ -457,13 +466,23 @@ public class Miner extends Unit {
         boolean buildVaporator = (this.vaporator == null || this.vaporator.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_VAP_MIN_DIST);
 
         if (!buildDesign && !buildFulfillment && !buildNetGun && !buildVaporator)  {
-            if (rc.getLocation().distanceSquaredTo(hq) < 60) return MinerState.BASE_BUILDING;
+            if (isBaseBuilder) return MinerState.BASE_BUILDING;
             else return MinerState.TRAVEL;
         }
 
+        // If things go wrong somehow, the miner defaults to wanting to build a vaporator
+        RobotType typeToBuild = RobotType.DESIGN_SCHOOL;
         // Scan the nearby surroundings for a good place within a few steps of us to build our building.
         if (this.pathfinder == null) {
-            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE);
+            if (buildDesign && rc.getLocation().distanceSquaredTo(hq) < 80) typeToBuild = RobotType.DESIGN_SCHOOL;
+            else if (buildFulfillment && rc.getLocation().distanceSquaredTo(hq) < 60) typeToBuild = RobotType.FULFILLMENT_CENTER;
+            else if (buildVaporator) typeToBuild = RobotType.VAPORATOR;
+            else if (buildFulfillment) typeToBuild = RobotType.FULFILLMENT_CENTER;
+            else if (buildDesign) typeToBuild = RobotType.DESIGN_SCHOOL;
+            else if (buildNetGun) typeToBuild = RobotType.NET_GUN;
+            else typeToBuild = (this.rng.nextDouble() < Config.FULFILLMENT_CENTER_PROB) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
+
+            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE, typeToBuild);
 
             // No good locations, give up.
             if (best == null) return MinerState.TRAVEL;
@@ -475,25 +494,11 @@ public class Miner extends Unit {
         if (this.pathfinder.finished(rc.getLocation())) {
             Direction towards = rc.getLocation().directionTo(this.pathfinder.goal());
 
-            //TODO: Decide which building to build partially based on what enemies miner can see
-            RobotType typeToBuild;
-            if (buildDesign && rc.getLocation().distanceSquaredTo(hq) < 60) typeToBuild = RobotType.DESIGN_SCHOOL;
-            else if (buildFulfillment && rc.getLocation().distanceSquaredTo(hq) < 60) typeToBuild = RobotType.FULFILLMENT_CENTER;
-            else if (buildVaporator) typeToBuild = RobotType.VAPORATOR;
-            else if (buildFulfillment) typeToBuild = RobotType.FULFILLMENT_CENTER;
-            else if (buildDesign) typeToBuild = RobotType.DESIGN_SCHOOL;
-            else if (buildNetGun) typeToBuild = RobotType.NET_GUN;
-            else typeToBuild = (this.rng.nextDouble() < Config.FULFILLMENT_CENTER_PROB) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
-
             if (rc.canBuildRobot(typeToBuild, towards))
                 rc.buildRobot(typeToBuild, towards);
 
-            if (rc.getLocation().distanceSquaredTo(hq) < 80 && rc.getRoundNum() > 300) {
-                return MinerState.BASE_BUILDING;
-            }
-            else {
-                return MinerState.TRAVEL;
-            }
+            if (isBaseBuilder) return MinerState.BASE_BUILDING;
+            else return MinerState.TRAVEL;
         }
 
         // Quit if we've wasted too much time on this.
@@ -577,15 +582,21 @@ public class Miner extends Unit {
         } else {
             this.enemyHq = this.symmetryHq[0];
         }
+
+        if (rc.getRoundNum() > 200 || rc.getID() % 4 == rc.getRoundNum() % 4) isBaseBuilder = true;
+        else isBaseBuilder = false;
     }
 
     /** Determines if a building location is a good one according to a few heuristics. */
-    private boolean goodBuildingLocation(RobotController rc, MapLocation loc, RobotInfo[] sensed) throws GameActionException {
+    private boolean goodBuildingLocation(RobotController rc, MapLocation loc, RobotInfo[] sensed, RobotType desiredBuilding) throws GameActionException {
+        if (desiredBuilding == RobotType.HQ || !desiredBuilding.isBuilding()){
+            return false;
+        }
+
         if (!rc.canSenseLocation(loc)) return false;
 
         // The building must be at least a minimum distance from our HQ.
         if (loc.distanceSquaredTo(this.hq) < Config.BUILD_BUILDING_MIN_HQ_DIST) return false;
-
         // The building must be at least a minimum distance from any other observed buildings.
         for (RobotInfo robot : sensed) {
             if (robot.type.canBePickedUp()) {
@@ -593,7 +604,7 @@ public class Miner extends Unit {
                 continue;
             }
 
-            if (loc.isAdjacentTo(robot.location)) return false;
+            if (desiredBuilding != RobotType.VAPORATOR && loc.isAdjacentTo(robot.location)) return false;
         }
 
         // We'd like the building to not block our pathfinding if possible; at least three of the four cardinal directions
@@ -610,7 +621,11 @@ public class Miner extends Unit {
     }
 
     /** Find a good building location within the given radius. */
-    private MapLocation findGoodBuildingLocation(RobotController rc, int radius) throws GameActionException {
+    private MapLocation findGoodBuildingLocation(RobotController rc, int radius, RobotType desiredBuilding) throws GameActionException {
+        if (desiredBuilding == RobotType.HQ || !desiredBuilding.isBuilding()){
+            return null;
+        }
+
         MapLocation us = rc.getLocation();
         MapLocation best = null;
         int bestDistance = Integer.MAX_VALUE;
@@ -622,9 +637,15 @@ public class Miner extends Unit {
 
                 MapLocation loc = new MapLocation(us.x + dx, us.y + dy);
                 int dist = loc.distanceSquaredTo(rc.getLocation());
-                if (goodBuildingLocation(rc, loc, sensed) && dist < bestDistance) {
-                    bestDistance = dist;
-                    best = loc;
+                if (goodBuildingLocation(rc, loc, sensed, desiredBuilding)){
+                    if (desiredBuilding == RobotType.DESIGN_SCHOOL && loc.distanceSquaredTo(hq) <= 13 ) {
+                        best = loc;
+                        return best;
+                    }
+                    else if (dist < bestDistance) {
+                            bestDistance = dist;
+                            best = loc;
+                    }
                 }
             }
         }
@@ -645,6 +666,6 @@ public class Miner extends Unit {
             if (robot != null && robot.type == RobotType.LANDSCAPER) numDiggers++;
         }
 
-        return numDiggers >= 4;
+        return numDiggers >= 5;
     }
 }

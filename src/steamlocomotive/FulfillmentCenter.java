@@ -54,11 +54,11 @@ public class FulfillmentCenter extends Unit {
         // This is the typical drone production behavior
         // Ramps up production rate based on the amount of soup. Over 2000 soup, it makes a drone every turn.
         // TODO: Make the round cutoffs and rates into easily-twiddled constants in Config
-        if (teamSoup >= RobotType.DELIVERY_DRONE.cost && numDronesBuilt <= 5) {
+        if (teamSoup >= RobotType.VAPORATOR.cost && numDronesBuilt <= 5) {
             normalProduction(rc, teamSoup, myID, currentRound);
             numDronesBuilt++;
         }
-        else if (teamSoup >= RobotType.DELIVERY_DRONE.cost && numDronesBuilt > 5) {
+        else if (teamSoup >= RobotType.VAPORATOR.cost && numDronesBuilt > 5) {
             halfProduction(rc, teamSoup, myID, currentRound);
             numDronesBuilt++;
         }
@@ -196,36 +196,36 @@ public class FulfillmentCenter extends Unit {
     public void productionTemplate(RobotController rc, int teamSoup, int myID, int currentRound, int rate, boolean faster) throws GameActionException{
         if (teamSoup >= RobotType.DELIVERY_DRONE.cost) {
             if (!faster) {
-                if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_ONE) {
+                if (teamSoup < Config.DRONE_PROD_CHANGE_ROUND_ONE) {
                     int modulus = Config.DRONE_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_TWO) {
+                } else if (teamSoup < Config.DRONE_PROD_CHANGE_ROUND_TWO) {
                     int modulus = Config.DRONE_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_THREE) {
+                } else if (teamSoup < Config.DRONE_PROD_CHANGE_ROUND_THREE) {
                     int modulus = Config.DRONE_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_FOUR) {
+                } else if (teamSoup < Config.DRONE_PROD_CHANGE_ROUND_FOUR) {
                     int modulus = Config.DRONE_PROD_RATE_ONE * rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup >= Config.DRONE_PROD_CHANGE_ROUND_FIVE) {
+                } else {
                     buildDroneBasic(rc);
                 }
             }
             else if (faster) {
-                if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_ONE) {
+                if (teamSoup < Config.DRONE_PROD_CHANGE_ROUND_ONE) {
                     int modulus = Config.DRONE_PROD_RATE_ONE / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_TWO) {
+                } else if (teamSoup < Config.DRONE_PROD_CHANGE_ROUND_TWO) {
                     int modulus = Config.DRONE_PROD_RATE_TWO / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_THREE) {
+                } else if (teamSoup < Config.DRONE_PROD_CHANGE_ROUND_THREE) {
                     int modulus = Config.DRONE_PROD_RATE_THREE / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup > Config.DRONE_PROD_CHANGE_ROUND_FOUR ) {
+                } else if (teamSoup < Config.DRONE_PROD_CHANGE_ROUND_FOUR) {
                     int modulus = Config.DRONE_PROD_RATE_FOUR / rate;
                     if (doesModulusWork(modulus, myID, currentRound)) buildDroneBasic(rc);
-                } else if (teamSoup >= Config.DRONE_PROD_CHANGE_ROUND_FIVE) {
+                } else{
                     buildDroneBasic(rc);
                 }
             }
