@@ -942,6 +942,7 @@ public strictfp class DeliveryDrone extends Unit {
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
         this.comms = Bitconnect.initialize(rc);
+        comms.scanRecent(rc, 50);
     }
 
     /**

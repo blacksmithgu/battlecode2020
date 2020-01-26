@@ -559,6 +559,7 @@ public class Miner extends Unit {
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
         comms = Bitconnect.initialize(rc);
+        comms.scanRecent(rc, 50);
 
         // Search for HQ/refinery for our initial dropoff. This may change in the future.
         RobotInfo refine = Utils.closestRobot(rc, robot -> robot.getType() == RobotType.REFINERY || robot.getType() == RobotType.HQ, rc.getTeam()).robot;

@@ -491,7 +491,7 @@ public class Landscaper extends Unit {
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
             MapLocation target = this.getTerraformTarget(rc);
             if (target == null) target = this.getRoamingTarget(rc, 6);
-            this.pathfinder = this.newPathfinder(target, true);
+            this.pathfinder = this.newPathfinder(target, false);
             this.pathfindSteps = 0;
         }
 
@@ -509,6 +509,7 @@ public class Landscaper extends Unit {
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
         comms = Bitconnect.initialize(rc);
+        comms.scanRecent(rc, 50);
         spawnLocation = rc.getLocation();
         if (comms.isWallDone()) state = LandscaperState.TERRAFORM;
         bolsterLocations = computeBolster(rc);
@@ -725,7 +726,8 @@ public class Landscaper extends Unit {
                 if (dx == 0 && dy == 0) continue;
 
                 MapLocation loc = new MapLocation(us.x + dx, us.y + dy);
-                if (!rc.onTheMap(loc) || !rc.canSenseLocation(loc) || !onLattice(loc)) continue;
+                if (!rc.onTheMap(loc) || !rc.canSenseLocation(loc) || !onLattice(loc)
+                    || rc.isLocationOccupied(loc)) continue;
                 if (rc.senseElevation(loc) >= terraHeight) continue;
 
                 int dist = loc.distanceSquaredTo(comms.hq());
