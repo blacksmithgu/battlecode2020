@@ -70,11 +70,6 @@ public class Config {
     public static final int BUILD_BUILDING_MIN_SOUP = RobotType.DESIGN_SCHOOL.cost;
 
     /**
-     * Probability that a miner decides to build a building.
-     */
-    public static final double BUILD_BUILDING_PROB = 0.20;
-
-    /**
      * Number of tiles we'll consider moving before potentially building a building.
      */
     public static final int BUILD_BUILDING_ROAM_DISTANCE = 3;
@@ -121,11 +116,8 @@ public class Config {
      */
     public static final int WALL_BUILD_ROUND_NUM = 250;
 
-    /**
-     * If a design school is this distance or closer to friendly HQ, it considers itself "close" to it
-     * (Setting to 48 is the same as a Manhattan distance of 6, compared to design school's vision of 4)
-     */
-    public static final int DESIGN_SCHOOL_HQ_CLOSE_MAX_DIST = 48;
+    /** Distance the terraformer scans for good tiles to terraform. */
+    public static int TERRAFORM_SCAN_DIST = 2;
 
     /**
      * Before nth cutoff round, factory basic production for unit has nth rate

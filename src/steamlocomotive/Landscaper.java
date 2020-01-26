@@ -2,8 +2,6 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.util.ArrayList;
-
 public class Landscaper extends Unit {
 
     /**
@@ -40,10 +38,7 @@ public class Landscaper extends Unit {
     // Updated per-round; the closest detected buriable enemy.
     private RobotInfo closestEnemy;
     // Wall Bolster Locations
-    private ArrayList<MapLocation> bolsterLocations;
-
-    // Wall Bolster Locations
-    private ArrayList<MapLocation> innerBolsterLocations;
+    private DynamicArray<MapLocation> bolsterLocations, innerBolsterLocations;
     // Spawn Location
     private MapLocation spawnLocation;
 
@@ -161,7 +156,6 @@ public class Landscaper extends Unit {
         if (rc.getLocation().distanceSquaredTo(comms.hq()) <= 2 && this.state.equals(LandscaperState.TERRAFORM)) {
             this.state = LandscaperState.BUILD_WALL;
         }
-
     }
 
     /**
@@ -243,6 +237,7 @@ public class Landscaper extends Unit {
                 }
             }
         }
+
         return LandscaperState.MOVE_TO_BOLSTER;
     }
 
@@ -250,32 +245,27 @@ public class Landscaper extends Unit {
      * The landscaper is bolstering the wall from an adjacent tile.
      */
     public LandscaperState bolsterWall(RobotController rc) throws GameActionException {
-        equalize = true;
-
         // Dig from the HQ if it is being buried, otherwise dig off-lattice.
         Direction digFrom = smartDigDirection(rc);
 
         Direction depositLoc = Direction.CENTER;
         int height = 10000;
 
-        // If equalizing, find the lowest adjacent wall tile and build there.
-        if (equalize) {
-            for (Direction dir : Direction.allDirections()) {
-                if (dir == Direction.CENTER) continue;
-                MapLocation loc = rc.getLocation().add(dir);
-                if (!rc.canSenseLocation(loc)) continue;
+        // Wall bolstering always attempts to equalize.
+        for (Direction dir : Direction.allDirections()) {
+            if (dir == Direction.CENTER) continue;
+            MapLocation loc = rc.getLocation().add(dir);
+            if (!rc.canSenseLocation(loc)) continue;
 
-                int adjHeight = rc.senseElevation(loc);
-                if (this.isWallTile(loc) && adjHeight < height) {
-                    depositLoc = dir;
-                    height = adjHeight;
-                }
+            int adjHeight = rc.senseElevation(loc);
+            if (this.isWallTile(loc) && adjHeight < height) {
+                depositLoc = dir;
+                height = adjHeight;
             }
         }
 
-        if (rc.senseElevation(rc.getLocation()) < Config.terraformHeight(rc.getRoundNum())) {
+        if (rc.senseElevation(rc.getLocation()) < Config.terraformHeight(rc.getRoundNum()))
             depositLoc = Direction.CENTER;
-        }
 
         // If adjacent to an enemy building, bury it
         // This should help when defending against rush
@@ -291,7 +281,6 @@ public class Landscaper extends Unit {
         } else {
             if (digFrom != null && rc.canDigDirt(digFrom)) rc.digDirt(digFrom);
         }
-
 
         return LandscaperState.BOLSTER_WALL;
     }
@@ -432,7 +421,8 @@ public class Landscaper extends Unit {
     }
 
     /**
-     * Terraform the map into a checkerboard; will roam randomly doing so for now until we improve pathing.
+     * Terraform the map into a lattice; deterministically tries to choose points
+     * closer to HQ which are below the terraform height.
      */
     public LandscaperState terraform(RobotController rc) throws GameActionException {
         // If we sense a nearby enemy building... say hello.
@@ -445,7 +435,7 @@ public class Landscaper extends Unit {
         int ourHeight = rc.senseElevation(rc.getLocation());
         int terraHeight = Config.terraformHeight(rc.getRoundNum());
 
-        // If we are not on the checkerboard, get on the checkerboard.
+        // If we are not on the lattice, get on the lattice.
         if (!onLattice(rc.getLocation())) {
             double averageAdjacentElevation = 0;
 
@@ -497,28 +487,34 @@ public class Landscaper extends Unit {
             }
         }
 
-        // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
+        // If the pathfinder is inactive or finished, pick a new target location to terraform to.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
-            this.pathfinder = this.newPathfinder(this.getRoamingTarget(rc, 4), true);
+            MapLocation target = this.getTerraformTarget(rc);
+            if (target == null) target = this.getRoamingTarget(rc, 6);
+            this.pathfinder = this.newPathfinder(target, false);
             this.pathfindSteps = 0;
         }
 
         // Obtain a movement from the pathfinder and follow it.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> onLattice(rc.getLocation().add(dir)) && Landscaper.canMoveL(rc, dir));
-        this.pathfindSteps++;
-        if (move == null || move == Direction.CENTER) return LandscaperState.TERRAFORM;
+        if (move == null || move == Direction.CENTER) {
+            this.pathfindSteps++;
+            return LandscaperState.TERRAFORM;
+        }
 
-        this.tryTerraformMove(rc, move);
+        if (this.tryTerraformMove(rc, move)) this.pathfindSteps++;
         return LandscaperState.TERRAFORM;
     }
 
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
         comms = Bitconnect.initialize(rc);
+        comms.scanRecent(rc, 50);
         spawnLocation = rc.getLocation();
         if (comms.isWallDone()) state = LandscaperState.TERRAFORM;
         bolsterLocations = computeBolster(rc);
         innerBolsterLocations = computeInnerBolster(rc);
+
         for (Direction dir : Direction.allDirections()) {
             MapLocation target = rc.getLocation().add(dir);
             if (isInnerBolsterTile(target)) {
@@ -527,8 +523,8 @@ public class Landscaper extends Unit {
         }
     }
 
-    public ArrayList<MapLocation> computeBolster(RobotController rc) {
-        ArrayList<MapLocation> bolsterLoc = new ArrayList<MapLocation>();
+    private DynamicArray<MapLocation> computeBolster(RobotController rc) {
+        DynamicArray<MapLocation> bolsterLoc = new DynamicArray<>(12);
         for (MapLocation loc : comms.walls()) {
             Direction start = loc.directionTo(comms.hq()).opposite().rotateLeft();
             for (int i = 0; i < 3; i++) {
@@ -541,14 +537,13 @@ public class Landscaper extends Unit {
                 start = start.rotateRight();
             }
         }
-        System.out.println(bolsterLoc);
         return bolsterLoc;
     }
 
-    public ArrayList<MapLocation> computeInnerBolster(RobotController rc) {
-        ArrayList<MapLocation> bolsterLoc = new ArrayList<MapLocation>();
-        ArrayList<MapLocation> interestingLoc = new ArrayList<MapLocation>();
-        ArrayList<MapLocation> interestingLoc2 = new ArrayList<MapLocation>();
+    public DynamicArray<MapLocation> computeInnerBolster(RobotController rc) {
+        DynamicArray<MapLocation> bolsterLoc = new DynamicArray<>(10);
+        DynamicArray<MapLocation> interestingLoc = new DynamicArray<>(10);
+        DynamicArray<MapLocation> interestingLoc2 = new DynamicArray<>(10);
 
         //if spot next to HQ is not a wall tile add it to a list
         for (Direction dir : Direction.allDirections()) {
@@ -658,14 +653,10 @@ public class Landscaper extends Unit {
      * Returns true if this tile is on the checkerboard and should thus be filled in.
      */
     private boolean onLattice(MapLocation loc) {
-        if (isWallTile(loc))
-            return true;
-        if (isBolsterTile(loc))
-            return true;
-        if (isInnerBolsterTile(loc))
-            return true;
-        if (isIdealWallDigLocation(loc))
-            return false;
+        if (isWallTile(loc)) return true;
+        if (isBolsterTile(loc)) return true;
+        if (isInnerBolsterTile(loc)) return true;
+        if (isIdealWallDigLocation(loc)) return false;
         return ((loc.x - comms.hq().x) % 2 == 0) || ((loc.y - comms.hq().y) % 2 == 0);
     }
 
@@ -680,10 +671,6 @@ public class Landscaper extends Unit {
      * Returns true if the location is a bolster location (i.e., landscapers can stand here to bolster the wall).
      */
     private boolean isBolsterTile(MapLocation loc) {
-//        if (comms.hq() == null) return false;
-//
-//        int dist = comms.hq().distanceSquaredTo(loc);
-//        return dist > 4 && dist < 9;
         return bolsterLocations != null && bolsterLocations.indexOf(loc) != -1;
     }
 
@@ -703,10 +690,10 @@ public class Landscaper extends Unit {
             Direction digDir = smartDigDirection(rc);
             if (rc.canDepositDirt(move)) {
                 rc.depositDirt(move);
-                return true;
+                return false;
             } else if (rc.canDigDirt(digDir)) {
                 rc.digDirt(digDir);
-                return true;
+                return false;
             }
         } else if (rc.canMove(move)) {
             rc.move(move);
@@ -719,13 +706,39 @@ public class Landscaper extends Unit {
     /**
      * Choose a target near the HQ when roaming.
      */
-    public MapLocation getRoamingTarget(RobotController rc, int dist) throws GameActionException {
+    private MapLocation getRoamingTarget(RobotController rc, int dist) throws GameActionException {
         MapLocation target = new MapLocation(comms.hq().x + rng.nextInt(dist * 2 + 1) - dist, comms.hq().y + rng.nextInt(dist * 2 + 1) - dist);
         for (int timeout = 0; timeout < 100 && !rc.onTheMap(target); timeout++) {
             target = new MapLocation(comms.hq().x + rng.nextInt(dist * 2 + 1) - dist, comms.hq().y + rng.nextInt(dist * 2 + 1) - dist);
         }
 
         return target;
+    }
+
+    private MapLocation getTerraformTarget(RobotController rc) throws GameActionException {
+        MapLocation us = rc.getLocation();
+        MapLocation best = null;
+        int terraHeight = Config.terraformHeight(rc.getRoundNum());
+        int bestDistance = Integer.MAX_VALUE;
+
+        for (int dx = -Config.TERRAFORM_SCAN_DIST; dx <= Config.TERRAFORM_SCAN_DIST; dx++) {
+            for (int dy = -Config.TERRAFORM_SCAN_DIST; dy <= Config.TERRAFORM_SCAN_DIST; dy++) {
+                if (dx == 0 && dy == 0) continue;
+
+                MapLocation loc = new MapLocation(us.x + dx, us.y + dy);
+                if (!rc.onTheMap(loc) || !rc.canSenseLocation(loc) || !onLattice(loc)
+                    || rc.isLocationOccupied(loc)) continue;
+                if (rc.senseElevation(loc) >= terraHeight) continue;
+
+                int dist = loc.distanceSquaredTo(comms.hq());
+                if (dist < bestDistance) {
+                    bestDistance = dist;
+                    best = loc;
+                }
+            }
+        }
+
+        return best;
     }
 
     /**

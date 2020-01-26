@@ -365,9 +365,6 @@ public class Bitconnect {
             for (Transaction tr : trans) conn.handleTransaction(rc, tr);
         }
 
-        // Scan recent blocks to reduce chance of missing heartbeats.
-        conn.scanRecent(rc, 50);
-
         return conn;
     }
 
@@ -493,6 +490,7 @@ public class Bitconnect {
         int[] result = builder.finish();
         result[result.length - 1] = Bitconnect.checksum(result, 0, 6, rc.getTeam());
         if (rc.canSubmitTransaction(result, Config.COMMS_COST)) {
+            System.out.println(rc.getType() + " spent money!");
             rc.submitTransaction(result, Config.COMMS_COST);
             return true;
         } else {

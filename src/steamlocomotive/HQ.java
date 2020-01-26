@@ -68,7 +68,7 @@ public class HQ extends Unit {
             return;
         }
 
-        if (rc.getTeamSoup()>200 && comms.isWallDone() && rc.getRoundNum() > 700 && this.builtSpecialMiner==false){
+        if (rc.getTeamSoup() > 200 && !comms.isWallDone() && rc.getRoundNum() > 700 && !this.builtSpecialMiner){
             this.buildSpecialMiner(rc);
             this.builtSpecialMiner = true;
         }
@@ -88,7 +88,7 @@ public class HQ extends Unit {
     /**
      * Build a special miner to build a design school internally to bolster HQ walls
      */
-    public void buildSpecialMiner(RobotController rc) throws GameActionException{
+    public void buildSpecialMiner(RobotController rc) throws GameActionException {
         Direction best = null;
         int dist = 100;
         for (Direction dir : Direction.allDirections()){
@@ -99,7 +99,8 @@ public class HQ extends Unit {
                 }
             }
         }
-        if (rc.canBuildRobot(RobotType.MINER, best))
+
+        if (best != null && rc.canBuildRobot(RobotType.MINER, best))
             rc.buildRobot(RobotType.MINER, best);
     }
 
