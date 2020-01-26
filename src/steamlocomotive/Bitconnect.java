@@ -411,6 +411,21 @@ public class Bitconnect {
     /** Obtain the list of wall locations. */
     public DynamicArray<MapLocation> walls() { return this.walls; }
 
+    /** Returns the number of Design Schools that have broadcasted their existence in the last 40 turns */
+    public int getNumDesignSchools() {
+        return 0;
+    }
+
+    /** Returns the number of Fulfillment Centers that have broadcasted their existence in the last 40 turns */
+    public int getNumFulfillmentCenters(){
+        return 0;
+    }
+
+    /** Sent by a building to notify everyone of its existence, rebroadcasted every 30 turns by the buildings */
+    public void iExist(RobotType type){
+        // RobotType.FULFILLMENT_CENTER RobotType.DESIGN_SCHOOL
+    }
+
     /** The list of possible enemy locations; null if we don't know our own HQ locations. */
     public DynamicArray<MapLocation> potentialEnemyLocations() { return this.possibleEnemyHqs; }
 

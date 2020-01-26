@@ -22,6 +22,9 @@ public class DesignSchool extends Unit {
         // Update comms information in case we need it.
         comms.updateForTurn(rc);
 
+        if (rc.getRoundNum()%30==0)
+            comms.iExist(rc.getType());
+
         if (!rc.isReady()) return;
 
         // The center scans nearby robots at the start of each turn, then passes the result into many of its checks
