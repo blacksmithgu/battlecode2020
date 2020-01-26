@@ -13,6 +13,8 @@ public class HQ extends Unit {
     // Number of miners which have been spawned.
     private int numMiners = 0;
 
+    private int numBuilders = 0;
+
     // HQ wall information.
     private Bitconnect.HQSurroundings wall;
 
@@ -97,6 +99,10 @@ public class HQ extends Unit {
             soupLocations = new MapLocation[]{new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()))};
         }
 
+        if((numBuilders >= 2 && rc.getRoundNum() %4 == 3) || (numMiners >= 4 && numBuilders == 0 && rc.getRoundNum()%4 != 3)) {
+            return;
+        }
+
         // Randomly choose a location to send a miner off too to die.
         MapLocation target = soupLocations[this.rng.nextInt(soupLocations.length)];
         Direction desired = rc.getLocation().directionTo(target);
@@ -107,6 +113,10 @@ public class HQ extends Unit {
 
         if (rc.canBuildRobot(RobotType.MINER, desired)) {
             rc.buildRobot(RobotType.MINER, desired);
+            if(rc.getRoundNum()%4==3) {
+                Utils.print("I made a builder!");
+                numBuilders++;
+            }
             this.numMiners += 1;
         }
     }

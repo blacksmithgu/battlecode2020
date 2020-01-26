@@ -2,8 +2,6 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.awt.*;
-
 public class Miner extends Unit {
 
     /** The possible miner states the miner can be in. */
@@ -261,7 +259,7 @@ public class Miner extends Unit {
         if (rc.getTeamSoup() > 1000) return MinerState.DREAMING_ABOUT_BUILDINGS;
 
         // If it's sufficiently late in the game, transition to being a base builder
-        if (rc.getRoundNum() > 350) {
+        if (rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND) {
             isBaseBuilder = true;
             return MinerState.BASE_BUILDING;
         }
@@ -583,7 +581,10 @@ public class Miner extends Unit {
             this.enemyHq = this.symmetryHq[0];
         }
 
-        if (rc.getRoundNum() > 200 || rc.getID() % 4 == rc.getRoundNum() % 4) isBaseBuilder = true;
+        if (rc.getRoundNum() > Config.BUILD_ON_CREATION_ROUND_NUMBER || rc.getRoundNum() % 4 == 0) {
+            Utils.print("I am a builder!");
+            isBaseBuilder = true;
+        }
         else isBaseBuilder = false;
     }
 

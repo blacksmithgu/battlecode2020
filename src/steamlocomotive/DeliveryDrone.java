@@ -757,7 +757,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Drone identifies its target. If no target, it transitions to roaming.
         Utils.ClosestRobot closestTarget = Utils.closestRobot(rc, robot -> robot.type == RobotType.COW, Team.NEUTRAL);
-        if (closestTarget == null) {
+        if (closestTarget.robot == null) {
             return new Transition(DroneState.ROAMING, false);
         }
 
@@ -775,9 +775,9 @@ public strictfp class DeliveryDrone extends Unit {
                 this.pathfinder = null;
             }
         } // If no pathfinder, create it to the closest enemy
-        else if (this.pathfinder == null) {
+        if (this.pathfinder == null) {
             // If closestTarget is somehow null, roam.
-            if (closestTarget == null) {
+            if (closestTarget.robot == null) {
                 return new Transition(DroneState.ROAMING, false);
             } else {
                 this.pathfinder = this.newPathfinder(closestTarget.robot.location, true);
@@ -895,7 +895,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Drone identifies its target. If no target, it transitions to roaming.
         Utils.ClosestRobot closestTarget = Utils.closestRobot(rc, robot -> robot.type == RobotType.LANDSCAPER || robot.type == RobotType.MINER, rc.getTeam().opponent());
-        if (closestTarget == null) {
+        if (closestTarget.robot == null) {
             return new Transition(DroneState.ROAMING, false);
         }
 
@@ -913,9 +913,9 @@ public strictfp class DeliveryDrone extends Unit {
                 this.pathfinder = null;
             }
         } // If no pathfinder, create it to the closest enemy
-        else if (this.pathfinder == null) {
+        if (this.pathfinder == null) {
             // If closestTarget is somehow null, roam.
-            if (closestTarget == null) {
+            if (closestTarget.robot == null) {
                 return new Transition(DroneState.ROAMING, false);
             } else {
                 this.pathfinder = this.newPathfinder(closestTarget.robot.location, true);

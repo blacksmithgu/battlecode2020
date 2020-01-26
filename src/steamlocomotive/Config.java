@@ -105,6 +105,9 @@ public class Config {
     public static final int BUILD_BUILDING_MIN_HQ_DIST = 9;
     public static final int EQUALITY_ROUND = 350;
 
+    public static final int BUILD_TRANSITION_ROUND = 600;
+    public static final int BUILD_ON_CREATION_ROUND_NUMBER = 350;
+
     // LANDSCAPER CONFIG
 
     /**
