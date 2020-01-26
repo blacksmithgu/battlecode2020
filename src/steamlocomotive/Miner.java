@@ -39,6 +39,9 @@ public class Miner extends Unit {
     // Tracks whether the miner is a base builder
     private boolean isBaseBuilder;
 
+    // TODO: Temporary hack to prevent freeze while I consider how to fix 'dreaming' things.
+    private boolean triedBuilding;
+
     public Miner(int id) {
         super(id);
         this.pathfinder = null;
@@ -46,6 +49,8 @@ public class Miner extends Unit {
         this.refinery = this.fulfillment = this.design = this.netGun = this.vaporator = null;
         this.state = MinerState.ROAMING;
         this.soups = new Utils.Clusterer(Config.NUM_SOUP_CLUSTERS, Config.MAX_CLUSTER_DISTANCE);
+
+        this.triedBuilding = false;
     }
 
     @Override
@@ -91,6 +96,9 @@ public class Miner extends Unit {
         // Emergency self-defense checks (like netguns).
         // Have ready check because miner may have built net gun or run away from drone
         this.checkForSelfDefense(rc);
+
+        // Reset transient state.
+        this.triedBuilding = false;
 
         int numTransitions = 0;
         while (rc.isReady()) {
@@ -258,7 +266,7 @@ public class Miner extends Unit {
         if (rc.getSoupCarrying() < Config.INVENTORY_RETURN_SIZE && soups.hasCluster()) return MinerState.TRAVEL;
 
         // If we have a lot of soup, consider building a building
-        if (rc.getTeamSoup() > 1000) return MinerState.DREAMING_ABOUT_BUILDINGS;
+        if (rc.getTeamSoup() > 1000 && !this.triedBuilding) return MinerState.DREAMING_ABOUT_BUILDINGS;
 
         // If it's sufficiently late in the game, transition to being a base builder
         if (rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND) {
@@ -356,7 +364,8 @@ public class Miner extends Unit {
                 rc.depositSoup(toRefinery, rc.getSoupCarrying());
 
                 // Build a fulfillment center/design school if necessary.
-                if (rc.getRoundNum() > Config.BUILD_BUILDING_MIN_ROUND && rc.getTeamSoup() > Config.BUILD_BUILDING_MIN_SOUP) {
+                if (rc.getRoundNum() > Config.BUILD_BUILDING_MIN_ROUND && rc.getTeamSoup() > Config.BUILD_BUILDING_MIN_SOUP
+                    && !this.triedBuilding) {
                    return MinerState.DREAMING_ABOUT_BUILDINGS;
                 }
 
@@ -459,6 +468,8 @@ public class Miner extends Unit {
 
     /** Try to build a fulfillment center or design school in a reasonable place. */
     public MinerState buildings(RobotController rc) throws GameActionException {
+        this.triedBuilding = true;
+
         // Ensure we have enough money to build a fulfillment center or design school.
         if (rc.getTeamSoup() < RobotType.FULFILLMENT_CENTER.cost || rc.getTeamSoup() < RobotType.DESIGN_SCHOOL.cost) return MinerState.TRAVEL;
 
@@ -517,7 +528,7 @@ public class Miner extends Unit {
     /** The miner roams near our HQ, building many vaporators and some net guns. */
     public MinerState baseBuilding(RobotController rc) throws GameActionException {
         // If we have enough soup, build things
-        if (rc.getTeamSoup() > RobotType.VAPORATOR.cost)
+        if (rc.getTeamSoup() > RobotType.VAPORATOR.cost && !this.triedBuilding)
             return MinerState.DREAMING_ABOUT_BUILDINGS;
 
         // If sufficiently far from HQ, head to the other side of it

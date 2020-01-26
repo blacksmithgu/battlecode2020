@@ -59,6 +59,8 @@ public strictfp class DeliveryDrone extends Unit {
     private MapLocation closestWater;
     // The closest enemy landscaper or miner that we've seen, for dunking
     private MapLocation closestEnemyLandUnit;
+    // The closest enemy net gun that the drone remembers seeing
+    private MapLocation closestEnemyNetGun;
     // The closest cow that we've seen (that isn't already close to enemy HQ)
     private MapLocation closestCow;
     // The closest soup we've seen that seems inaccessible to friendly miners
@@ -87,6 +89,7 @@ public strictfp class DeliveryDrone extends Unit {
         this.pathfindSteps = 0;
         this.closestWater = null;
         this.closestEnemyLandUnit = null;
+        this.closestEnemyNetGun = null;
         this.closestCow = null;
         this.closestHardSoup = null;
         this.closestFriendlyMiner = null;
@@ -213,6 +216,18 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
+        //Reset closestEnemyNetGun to null if outdated
+        if (closestEnemyNetGun != null && rc.canSenseLocation(closestEnemyNetGun)) {
+            RobotInfo shouldBeEnemy = rc.senseRobotAtLocation(closestEnemyNetGun);
+            if (shouldBeEnemy == null) {
+                closestEnemyNetGun = null;
+            } else if (shouldBeEnemy.team == rc.getTeam()) {
+                closestEnemyNetGun = null;
+            } else if (shouldBeEnemy.type != RobotType.NET_GUN) {
+                closestEnemyNetGun = null;
+            }
+        }
+
         // Reset closestCow to null if outdated
         if (closestCow != null && rc.canSenseLocation(closestCow)) {
             RobotInfo shouldBeCow = rc.senseRobotAtLocation(closestCow);
@@ -244,6 +259,7 @@ public strictfp class DeliveryDrone extends Unit {
         int[] waterDistance = new int[]{this.closestWater == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestWater)};
         int[] cowDistance = new int[]{this.closestCow == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestCow)};
         int[] enemyLandUnitDistance = new int[]{this.closestEnemyLandUnit == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestEnemyLandUnit)};
+        int[] enemyNetGunDistance = new int[]{this.closestEnemyNetGun == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestEnemyNetGun)};
         int[] friendlyMinerDistance = new int[]{this.closestFriendlyMiner == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestFriendlyMiner)};
         int[] friendlyLandscaperDistance = new int[]{this.closestFriendlyLandscaper == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestFriendlyLandscaper)};
         int[] hardSoupDistance = new int[]{this.closestHardSoup == null ? Integer.MAX_VALUE : rc.getLocation().distanceSquaredTo(this.closestHardSoup)};
@@ -278,6 +294,11 @@ public strictfp class DeliveryDrone extends Unit {
                         }
                     } else if (nearbyRobot.type == RobotType.HQ && comms.enemyHq() == null) {
                         comms.notifyEnemyBase(loc);
+                    } else if (nearbyRobot.type == RobotType.NET_GUN) {
+                        if (dist < enemyNetGunDistance[0]) {
+                            this.closestEnemyNetGun = loc;
+                            enemyNetGunDistance[0] = dist;
+                        }
                     }
                 } else if (nearbyRobot.type == RobotType.MINER) {
                     if (dist < friendlyMinerDistance[0]) {
@@ -343,7 +364,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.FINDING_LANDSCAPER, true);
@@ -386,7 +407,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.FERRYING_LANDSCAPER, true);
@@ -424,7 +445,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun,true));
         if (move != null && move != Direction.CENTER) rc.move(move);
         this.pathfindSteps++;
 
@@ -487,7 +508,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.ROAMING, true);
@@ -524,7 +545,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.DUNKING, true);
@@ -594,7 +615,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.FINDING_MINER, true);
@@ -643,7 +664,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.FERRYING_MINER, true);
@@ -677,7 +698,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.FINDING_ENEMY, true);
@@ -722,7 +743,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.FINDING_COW, true);
@@ -767,7 +788,7 @@ public strictfp class DeliveryDrone extends Unit {
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
-        if (move != null && move != Direction.CENTER && canMoveD(rc, move, nearbyEnemies, true)) rc.move(move);
+        if (move != null && move != Direction.CENTER && canMoveD(rc, move, nearbyEnemies, comms.enemyHq(), closestEnemyNetGun, true)) rc.move(move);
 
 
         return new Transition(DroneState.DUNKING, true);
@@ -821,7 +842,7 @@ public strictfp class DeliveryDrone extends Unit {
         // can't see HQ, but will move into net range
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
-        if (move != null && move != Direction.CENTER && canMoveD(rc, move, enemies, true)) {
+        if (move != null && move != Direction.CENTER && canMoveD(rc, move, enemies, comms.enemyHq(), closestEnemyNetGun, true)) {
             if (rc.getLocation().add(move).distanceSquaredTo(comms.enemyHq()) > GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
                 rc.move(move);
             }
@@ -854,7 +875,7 @@ public strictfp class DeliveryDrone extends Unit {
         // can't see HQ, but will move into net range
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> rc.canMove(dir));
-        if (move != null && move != Direction.CENTER && canMoveD(rc, move, enemies, true)) {
+        if (move != null && move != Direction.CENTER && canMoveD(rc, move, enemies, comms.enemyHq(), closestEnemyNetGun, true)) {
             if (rc.getLocation().add(move).distanceSquaredTo(comms.enemyHq()) > GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
                 rc.move(move);
             }
@@ -875,7 +896,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> canMoveD(rc, dir, nearbyEnemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> canMoveD(rc, dir, nearbyEnemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.FINDING_ENEMY_HQ, true);
@@ -912,7 +933,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> canMoveD(rc, dir, nearbyEnemies, true));
+        Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> canMoveD(rc, dir, nearbyEnemies, comms.enemyHq(), closestEnemyNetGun, true));
         if (move != null && move != Direction.CENTER) rc.move(move);
 
         return new Transition(DroneState.SAFE_CHASING, true);
@@ -968,7 +989,7 @@ public strictfp class DeliveryDrone extends Unit {
     /**
      * A movement check which respects enemy netgun range.
      */
-    private static boolean canMoveD(RobotController rc, Direction dir, RobotInfo[] enemies, boolean respectNetguns) {
+    private static boolean canMoveD(RobotController rc, Direction dir, RobotInfo[] enemies, MapLocation enemyHQLoc, MapLocation closestEnemyNetGun, boolean respectNetguns) {
         if (!rc.canMove(dir)) return false;
         if (!respectNetguns) return true;
 
@@ -978,6 +999,8 @@ public strictfp class DeliveryDrone extends Unit {
             if (info.location.distanceSquaredTo(target) <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED && (info.type == RobotType.NET_GUN || info.type == RobotType.HQ))
                 return false;
         }
+        if (closestEnemyNetGun != null && closestEnemyNetGun.distanceSquaredTo(target) <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) return false;
+        if (enemyHQLoc != null && enemyHQLoc.distanceSquaredTo(target) <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) return false;
 
         return true;
     }
