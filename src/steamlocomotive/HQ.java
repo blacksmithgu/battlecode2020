@@ -115,7 +115,7 @@ public class HQ extends Unit {
             soupLocations = new MapLocation[]{new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()))};
         }
 
-        if((numMiners < 3 && numBuilders >= 2 && rc.getRoundNum() %4 == 0) || (numMiners >= 4 && numBuilders == 0 && rc.getRoundNum()%4 != 0)) {
+        if((numMiners < 4 && rc.getRoundNum() %4 == 0) || (numBuilders >= 2 && rc.getRoundNum() %4 == 0) || (numMiners >= 4 && numBuilders == 0 && rc.getRoundNum()%4 != 0)) {
             return;
         }
 

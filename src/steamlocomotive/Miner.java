@@ -518,7 +518,7 @@ public class Miner extends Unit {
     /** The miner roams near our HQ, building many vaporators and some net guns. */
     public MinerState baseBuilding(RobotController rc) throws GameActionException {
         // If we have enough soup, build things
-        if (rc.getTeamSoup() > RobotType.VAPORATOR.cost && rc.getRoundNum() % 4 == rc.getID() % 4)
+        if (rc.getTeamSoup() > RobotType.VAPORATOR.cost)
             return MinerState.DREAMING_ABOUT_BUILDINGS;
 
         // If sufficiently far from HQ, head to the other side of it

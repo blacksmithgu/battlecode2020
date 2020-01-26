@@ -70,10 +70,10 @@ public class DesignSchool extends Unit {
         // The design school near the HQ builds 8 landscapers quickly, so that the wall gets up as fast as possible
         // Only does this building every other turn so that the first design school can get out its early drones
         // Added +50 so this doesn't kill our early econ and prevent any drone building
-        if (isNearHQ && !comms.isWallDone() && numLandscapersBuilt < comms.walls().size() && rc.getTeamSoup() >= RobotType.REFINERY.cost + 20) {
+        /*if (isNearHQ && !comms.isWallDone() && numLandscapersBuilt < comms.walls().size() && rc.getTeamSoup() >= RobotType.REFINERY.cost + 20) {
             buildLandscaperBasic(rc);
             return;
-        }
+        }*/
 
         // If the HQ has dirt on it and friendly landscapers don't outnumber enemy landscapers, build landscaper
         // The plus 10 is so that emergency drones are more likely to be built than emergency landscapers
