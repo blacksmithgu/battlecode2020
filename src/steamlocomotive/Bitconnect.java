@@ -2,352 +2,447 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.util.Map;
-
+/**
+ * Intermediary for global shared state; reads messages every turn to update state and can also queue messages
+ * to inform other units of state changes.
+ */
 public class Bitconnect {
 
-    // width of the map
-    final int width;
-    // height of the map
-    final int height;
-    // our HQ setup
-    HQSurroundings ourHQSurroundings;
-    // is our wall done
-    boolean isWallDone = false;
+    /** Number of bits for encoding a message type. */
+    public static final int MESSAGE_TYPE_BITS = 2;
 
-    final Team ourTeam;
-
-    private MapLocation enemyBaseLocation = null;
-
-    final CircularStack<Block> blocksToSend;
-
+    /** The possible different types of messages. */
     private enum MessageType {
-        HQ_SETTUP(42),
-        WALL_DONE(76),
-        ENEMY_BASE(91);
+        HQ_SURROUNDINGS(0, true),
+        NO_ENEMY_BASE(1, false),
+        ENEMY_BASE(2, true),
+        WALL_DONE(3, true),
+        UNKNOWN(999999, false);
 
-        final int id;
+        private final int id;
+        private final boolean highPriority;
 
-        private MessageType(int i) {
-            this.id = i;
+        public static MessageType fromId(int id) {
+            for (MessageType type : MessageType.values()) {
+                if (type.id == id) return type;
+            }
+
+            return MessageType.UNKNOWN;
         }
 
-        public int getId() {
+        MessageType(int i, boolean highPriority) {
+            this.id = i;
+            this.highPriority = highPriority;
+        }
+
+        public int id() {
             return this.id;
         }
+
+        public boolean isHighPriority() {
+            return highPriority;
+        }
     }
 
-    public static class HQSurroundings {
-        final MapLocation hq;
-        final DynamicArray<MapLocation> adjacentWallSpots;
-        final Team ourTeam;
+    /** Utility class which allows for appending bits to a block dynamically. */
+    public static class BlockBuilder {
+        private int[] data;
+        private int index;
 
-        /**
-         * adjacent wall spots should be next to the HQ.
-         */
-        public HQSurroundings(MapLocation hq, MapLocation[] adjacentWallSpots, Team ourTeam) {
+        public BlockBuilder() {
+            this.data = new int[7];
+            this.index = 0;
+        }
+
+        public void append(boolean bit) {
+            int wordIndex = this.index / 32, bitIndex = this.index % 32;
+            // Data is 0 initialized, so only overwrite if bit is 1.
+            if (bit) data[wordIndex] |= (1 << bitIndex);
+
+            this.index += 1;
+        }
+
+        public void append(int value, int numBits) {
+            int wordIndex = this.index / 32, bitIndex = this.index % 32;
+            int wordAvailable = 32 - bitIndex;
+            if (wordAvailable < numBits) {
+                // Have to deal with writing across two integers.
+                int firstMask = (1 << wordAvailable) - 1;
+                int secondMask = (1 << (numBits - wordAvailable)) - 1;
+                // Write as many bits as possible to the current word.
+                data[wordIndex] |= (value & firstMask) << bitIndex;
+                // Write remaining to second word.
+                data[wordIndex + 1] |= (value >>> wordAvailable) & secondMask;
+            } else {
+                // Write just to the current integer.
+                int mask = (1 << numBits) - 1;
+                data[wordIndex] |= (value & mask) << bitIndex;
+            }
+
+            this.index += numBits;
+        }
+
+        public int[] finish() {
+            return this.data;
+        }
+    }
+
+    /** Reads data from a block iteratively. */
+    public static class BlockReader {
+        private final int[] data;
+        private int index;
+
+        public BlockReader(int[] data) {
+            this.data = data;
+            this.index = 0;
+        }
+
+        public boolean readBoolean() {
+            int wordIndex = this.index / 32, bitIndex = this.index % 32;
+            boolean value = (data[wordIndex] & (1 << bitIndex)) != 0;
+
+            this.index += 1;
+            return value;
+        }
+
+        public int readInteger(int numBits) {
+            int wordIndex = this.index / 32, bitIndex = this.index % 32;
+            int wordAvailable = 32 - bitIndex;
+            int result = 0;
+
+            if (wordAvailable < numBits) {
+                // Need to handle reading across two seperate words.
+                result = (data[wordIndex] >>> bitIndex) & ((1 << wordAvailable) - 1);
+                result |= (data[wordIndex + 1] & ((1 << (numBits - wordAvailable)) - 1)) << wordAvailable;
+            } else {
+                result = (data[wordIndex] >>> bitIndex) & ((1 << numBits) - 1);
+            }
+
+            this.index += numBits;
+            return result;
+        }
+    }
+
+    /** A message implementation; allows for converting the message to a block. Check it's type to downcast. */
+    private interface Message {
+        /** The type of this message (see MessageType). */
+        MessageType type();
+
+        /** The size of the contents of this message in bits. */
+        int bitSize();
+
+        /** Write this message to the given block builder. */
+        void write(BlockBuilder builder);
+    }
+
+    /** Wall locations and current status of the walls. */
+    public static class HQSurroundings implements Message {
+        // Core wall locations (between 3 and 8) to build the wall.
+        private final DynamicArray<MapLocation> walls;
+        // The HQ location.
+        private final MapLocation hq;
+
+        public HQSurroundings(DynamicArray<MapLocation> walls, MapLocation hq) {
+            this.walls = walls;
             this.hq = hq;
-            this.adjacentWallSpots = new DynamicArray<>(adjacentWallSpots);
-            this.ourTeam = ourTeam;
         }
 
-        public HQSurroundings(MapLocation hq, DynamicArray<MapLocation> adjacentWallSpots, Team ourTeam) {
-            this.hq = hq;
-            this.adjacentWallSpots = adjacentWallSpots;
-            this.ourTeam = ourTeam;
+        public DynamicArray<MapLocation> walls() {
+            return this.walls;
         }
 
-        /** Returns true if the location is a wall tile. */
-        public boolean isWall(MapLocation loc) {
-            return listContainsLocation(this.adjacentWallSpots, loc)>=0;
+        public MapLocation hq() {
+            return this.hq;
         }
 
-        private int listContainsLocation(DynamicArray<MapLocation> locs, MapLocation location) {
-            for (int index = 0; index < locs.size(); index ++) {
-                MapLocation test = locs.get(index);
-                if(test.x == location.x && test.y == location.y) return index;
-            }
-            return -1;
+        public MessageType type() {
+            return MessageType.HQ_SURROUNDINGS;
         }
 
-        public Block toMessage() {
-            int[] message = new int[6];
-            message[0] = MessageType.HQ_SETTUP.getId();
-            message[1] = hq.x;
-            message[2] = hq.y;
-            message[3] = 0;
-
-            int index = 0;
-            DynamicArray<MapLocation> removed = new DynamicArray<>(adjacentWallSpots.size());
-
-            for(Direction direction: Direction.allDirections()){
-                if(direction.equals(Direction.CENTER)) {
-                    continue;
-                }
-                int locIndex = listContainsLocation(this.adjacentWallSpots, hq.add(direction));
-                if(locIndex >= 0){
-                    message[3] = setBit(message[3], index, true);
-                    removed.add(adjacentWallSpots.get(locIndex));
-                    adjacentWallSpots.removeQuick(locIndex);
-                } else {
-                    message[3] = setBit(message[3], index, false);
-                }
-                index++;
-            }
-            setBits(message, 3*32 + index, 1, 0);
-            // TODO: fix issue of this being larger than the message
-            while (adjacentWallSpots.size() > 0) {
-                setBits(message, 3*32+index, 1, 1);
-                index++;
-                setBits(message, 3*32 + index, 6, adjacentWallSpots.get(0).x);
-                index+=6;
-                setBits(message, 3*32 + index, 6, adjacentWallSpots.get(0).y);
-                index+=6;
-                removed.add(adjacentWallSpots.get(0));
-                adjacentWallSpots.removeQuick(0);
-            }
-            setBits(message, 3*32 + index, 1, 0);
-
-            for(MapLocation loc: removed) {
-                adjacentWallSpots.add(loc);
-            }
-
-            return Block.createBlock(message, ourTeam);
+        public int bitSize() {
+            return 4 + 12 * (walls.size() + 1);
         }
 
-        public static HQSurroundings fromMessage(Block block, Team team) {
-            int[] message = block.getBlockMessage();
-            if(message[0]!=MessageType.HQ_SETTUP.getId()) {
-                return null;
+        public void write(BlockBuilder builder) {
+            // Write the number of walls (3 bits), followed by wall offsets (2x3 bits each), followed by wall finish.
+            builder.append(walls.size(), 4);
+            for (MapLocation loc : walls) {
+                builder.append(loc.x, 6);
+                builder.append(loc.y, 6);
             }
-            MapLocation hq = new MapLocation(message[1], message[2]);
-
-            int adjContent = message[3];
-
-            DynamicArray<MapLocation> locations = new DynamicArray<>(8);
-            int adjIndex = 0;
-            for(Direction direction: Direction.allDirections()) {
-                if(direction == Direction.CENTER) {
-                    continue;
-                }
-                if(getBit(adjContent, adjIndex)) {
-                    locations.add(hq.add(direction));
-                }
-                adjIndex++;
-            }
-            int index = 3*32 + adjIndex;
-            while (getBits(message, index, 1) == 1) {
-                index++;
-                int x = getBits(message, index, 6);
-                index+=6;
-                int y = getBits(message, index, 6);
-                index+=6;
-                locations.add(new MapLocation(x,y));
-            }
-
-            return new HQSurroundings(hq, locations, team);
+            builder.append(hq.x, 6);
+            builder.append(hq.y, 6);
         }
 
-        public boolean equals(HQSurroundings other) {
-            if(other == null) {
-                return false;
+        public static HQSurroundings read(BlockReader reader) {
+            int numWalls = reader.readInteger(4);
+            DynamicArray<MapLocation> walls = new DynamicArray<>(numWalls);
+            for (int i = 0; i < numWalls; i++) {
+                int x = reader.readInteger(6);
+                int y = reader.readInteger(6);
+                walls.add(new MapLocation(x, y));
             }
-            if(!this.hq.equals(other.hq)) {
-                return false;
-            }
-            for(MapLocation location: this.adjacentWallSpots) {
-                if(this.listContainsLocation(other.adjacentWallSpots, location)==-1) {
-                    return false;
-                }
-            }
-            for(MapLocation location: other.adjacentWallSpots) {
-                if(this.listContainsLocation(this.adjacentWallSpots, location)==-1) {
-                    return false;
-                }
-            }
-            return true;
+
+            int x = reader.readInteger(6);
+            int y = reader.readInteger(6);
+            return new HQSurroundings(walls, new MapLocation(x, y));
         }
     }
 
+    public static class LocationMessage implements Message {
+        private MapLocation location;
+        private MessageType type;
 
-    private Block sendMessage(RobotController rc, Block block) throws GameActionException {
-        if (rc.getTeamSoup() > Config.SOUP_FOR_COMS) {
-            rc.submitTransaction(block.getBlockMessage(), Config.SOUP_FOR_COMS);
-            return block;
-        } else if (rc.getTeamSoup() > 0) {
-            rc.submitTransaction(block.getBlockMessage(), rc.getTeamSoup());
-            return block;
+        public LocationMessage(MapLocation location, MessageType type) {
+            this.location = location;
+            this.type = type;
         }
-        return null;
+
+        public MapLocation location() { return location; }
+
+        @Override
+        public MessageType type() { return type; }
+
+        @Override
+        public int bitSize() { return 12; }
+
+        @Override
+        public void write(BlockBuilder builder) {
+            builder.append(location.x, 6);
+            builder.append(location.y, 6);
+        }
+
+        public static LocationMessage read(BlockReader reader, MessageType type) {
+            MapLocation loc = new MapLocation(reader.readInteger(6), reader.readInteger(6));
+            return new LocationMessage(loc, type);
+        }
     }
 
-    public Bitconnect(RobotController rc, int width, int height) throws GameActionException {
+    public static class BooleanMessage implements Message {
+        private MessageType type;
+        private boolean value;
+
+        public BooleanMessage(boolean value, MessageType type) {
+            this.type = type;
+            this.value = value;
+        }
+
+        public boolean value() { return value; }
+
+        @Override
+        public MessageType type() { return type; }
+
+        @Override
+        public int bitSize() { return 1; }
+
+        @Override
+        public void write(BlockBuilder builder) {
+            builder.append(this.value);
+        }
+
+        public static BooleanMessage read(BlockReader reader, MessageType type) {
+            return new BooleanMessage(reader.readBoolean(), type);
+        }
+    }
+
+    // Map width and height.
+    private final int width, height;
+
+    // Our HQ location, and the enemy HQ location (if known; otherwise null).
+    private MapLocation hq, enemyHq;
+
+    // Before we know the exact location of the enemy HQ, this is the list of possible enemy HQ locations based on map symmetry.
+    private DynamicArray<MapLocation> possibleEnemyHqs;
+
+    // Wall locations surrounding the HQ.
+    private DynamicArray<MapLocation> walls;
+
+    // If true, landscapers have reached all wall locations.
+    private boolean wallDone;
+
+    // Queue of messages to attempt to send.
+    private final DynamicArray<Message> sendQueue;
+
+    /**
+     * Initialize a new communications handler from the given robot controller. This initialization
+     * can be potentially expensive, since it scans early blocks for HQ location and wall state.
+     */
+    public static Bitconnect initialize(RobotController rc) throws GameActionException {
+        Bitconnect conn = new Bitconnect(rc.getMapWidth(), rc.getMapHeight());
+        for (int round = 2; round <= Math.min(20, rc.getRoundNum() - 1); round++) {
+            Transaction[] trans = rc.getBlock(round);
+            for (Transaction tr : trans) conn.handleTransaction(rc, tr);
+        }
+
+        return conn;
+    }
+
+    /** Compute potential enemy HQ locations based on our HQ location. */
+    public static DynamicArray<MapLocation> computeEnemyLocations(MapLocation hq, int width, int height) {
+        DynamicArray<MapLocation> possibleEnemyHqs = new DynamicArray<>(3);
+        MapLocation curr = hq;
+        for (int i = 0; i < 3; i++) {
+            curr = new MapLocation(width - curr.y - 1, curr.x);
+            possibleEnemyHqs.add(curr);
+        }
+
+        return possibleEnemyHqs;
+    }
+
+    /** Checksum the indices of the given integer array; use different algorithms depending on the team. */
+    public static int checksum(int[] data, int start, int end, Team team) {
+        int val = (team == Team.A) ? 6123412 : 32742361;
+        for (int index = start; index < end; index++) val ^= data[index];
+        return val;
+    }
+
+    private Bitconnect(int width, int height) {
+        this.sendQueue = new DynamicArray<>(20);
         this.width = width;
         this.height = height;
-        this.blocksToSend = new CircularStack<Block>(10);
-        this.ourTeam = rc.getTeam();
+    }
 
-        for(int turn = 1; turn < 20 && turn < rc.getRoundNum(); turn++) {
-            Transaction[] transactions = rc.getBlock(turn);
-            for(Transaction transaction: transactions) {
-                Block block = Block.extractBlock(transaction.getMessage(), ourTeam);
-                if(block != null) {
-                    HQSurroundings surroundings = HQSurroundings.fromMessage(block, ourTeam);
-                    if(surroundings!=null) {
-                        this.ourHQSurroundings = surroundings;
-                    }
-                }
-            }
-        }
+    private void handleTransaction(RobotController rc, Transaction trans) throws GameActionException {
+        // Verify there's actually a transaction here.
+        if (trans == null || trans.getMessage() == null) return;
+        // Verify the checksum on this transaction, ignore it if invalid.
+        if (Bitconnect.checksum(trans.getMessage(), 0, 6, rc.getTeam()) != trans.getMessage()[6]) return;
 
-        for(int turn = 1; turn < 50 && turn < rc.getRoundNum(); turn++) {
-            Transaction[] transactions = rc.getBlock(rc.getRoundNum() - turn);
-            for(Transaction transaction: transactions) {
-                Block block = Block.extractBlock(transaction.getMessage(), ourTeam);
-                if(block != null) {
-                    if(block.getMessage()[0]==MessageType.WALL_DONE.getId()) {
-                        this.isWallDone = true;
-                        continue;
-                    }
+        // Read the chunks within this transaction.
+        BlockReader reader = new BlockReader(trans.getMessage());
+        int numMessages = reader.readInteger(3);
 
-                    if(block.getMessage()[0]==MessageType.ENEMY_BASE.getId()) {
-                        this.enemyBaseLocation = new MapLocation(block.getMessage()[1], block.getMessage()[2]);
+        for (int index = 0; index < numMessages; index++) {
+            int messageId = reader.readInteger(MESSAGE_TYPE_BITS);
+            System.out.println("Recieved message ID " + messageId);
+            switch (MessageType.fromId(messageId)) {
+                case ENEMY_BASE:
+                    this.enemyHq = LocationMessage.read(reader, MessageType.ENEMY_BASE).location;
+                    this.possibleEnemyHqs = new DynamicArray<>(1);
+                    this.possibleEnemyHqs.add(enemyHq);
+                    break;
+                case HQ_SURROUNDINGS:
+                    HQSurroundings surr = HQSurroundings.read(reader);
+                    MapLocation oldHq = this.hq;
+                    this.hq = surr.hq;
+                    this.walls = surr.walls;
+
+                    if (this.hq != null && oldHq == null) this.handlePotentialEnemyLocs(this.hq);
+                    break;
+                case WALL_DONE:
+                    this.wallDone = BooleanMessage.read(reader, MessageType.WALL_DONE).value;
+                    break;
+                case NO_ENEMY_BASE:
+                    MapLocation enemyLoc = LocationMessage.read(reader, MessageType.NO_ENEMY_BASE).location;
+                    if (this.possibleEnemyHqs != null) {
+                        int enemyIdx = this.possibleEnemyHqs.indexOf(enemyLoc);
+                        if (enemyIdx != -1) this.possibleEnemyHqs.removeQuick(enemyIdx);
+                        if (this.possibleEnemyHqs.size() == 1) this.enemyHq = this.possibleEnemyHqs.get(0);
                     }
-                }
+                    break;
+                default: throw new IllegalStateException("Unrecognized message type during transaction parsing");
             }
         }
     }
 
+    /** Send messages optimally by packing multiple messages into a single transaction. */
+    private boolean clusteredSend(RobotController rc) throws GameActionException {
+        if (this.sendQueue.size() == 0) return false;
+
+        BlockBuilder builder = new BlockBuilder();
+        DynamicArray<Message> fitMessages = new DynamicArray<>(8);
+
+        int availableBits = 32 * 6 - 3;
+        while (fitMessages.size() < 8 && this.sendQueue.size() > 0 && availableBits >= this.sendQueue.get(0).bitSize() + MESSAGE_TYPE_BITS) {
+            Message msg = this.sendQueue.get(0);
+            this.sendQueue.removeQuick(0);
+            fitMessages.add(msg);
+            availableBits -= msg.bitSize() + MESSAGE_TYPE_BITS;
+        }
+
+        if (fitMessages.size() == 0) return false;
+
+        builder.append(fitMessages.size(), 3);
+        for (Message msg : fitMessages) {
+            builder.append(msg.type().id(), MESSAGE_TYPE_BITS);
+            msg.write(builder);
+        }
+
+        int[] result = builder.finish();
+        result[result.length - 1] = Bitconnect.checksum(result, 0, 6, rc.getTeam());
+        if (rc.canSubmitTransaction(result, Config.COMMS_COST)) {
+            rc.submitTransaction(result, Config.COMMS_COST);
+            return true;
+        } else {
+            // Add messages back to send queue so we can try again later.
+            for (Message msg : fitMessages) this.sendQueue.add(msg);
+
+            return false;
+        }
+    }
+
+    // Compute possible enemy HQ locations based on our HQ location.
+    private void handlePotentialEnemyLocs(MapLocation hq) {
+        if (this.enemyHq != null) return;
+        this.possibleEnemyHqs = Bitconnect.computeEnemyLocations(hq, this.width, this.height);
+    }
 
     /**
-     * All robots that want to recieve new coms should call this at the start of their turn.
+     * All robots that want to recieve new comms should call this at the start of their turn.
      */
     public void updateForTurn(RobotController rc) throws GameActionException {
-        if(rc.getRoundNum() == 1) {
-            return;
+        // No blocks are posted on round 1, so skip it.
+        if (rc.getRoundNum() == 1) return;
+
+        // Send operations; repeatedly send until the clustered send fails.
+        while (this.clusteredSend(rc));
+
+        // Recieve operations.
+        for (Transaction transaction : rc.getBlock(rc.getRoundNum() - 1))
+            this.handleTransaction(rc, transaction);
+    }
+
+    /** Obtain our HQ location, if known (else null). */
+    public MapLocation hq() { return this.hq; }
+
+    /** Obtain the enemy HQ location, if known (else null). */
+    public MapLocation enemyHq() { return this.enemyHq; }
+
+    /** Obtain the list of wall locations. */
+    public DynamicArray<MapLocation> walls() { return this.walls; }
+
+    /** The list of possible enemy locations; null if we don't know our own HQ locations. */
+    public DynamicArray<MapLocation> potentialEnemyLocations() { return this.possibleEnemyHqs; }
+
+    public boolean isWallDone() { return this.wallDone; }
+
+    public void notifyHqSurroundings(MapLocation hq, DynamicArray<MapLocation> walls) {
+        if (this.hq == null) this.handlePotentialEnemyLocs(hq);
+
+        this.hq = hq;
+        this.walls = walls;
+        this.sendQueue.add(new HQSurroundings(walls, hq));
+    }
+
+    public void notifyNoEnemyBase(MapLocation noBase) {
+        if (this.possibleEnemyHqs != null) {
+            int enemyIdx = this.possibleEnemyHqs.indexOf(noBase);
+            if (enemyIdx != -1) this.possibleEnemyHqs.removeQuick(enemyIdx);
+            if (this.possibleEnemyHqs.size() == 1) this.notifyEnemyBase(this.possibleEnemyHqs.get(0));
         }
 
-        Block toSend = blocksToSend.pop();
-        if(toSend!=null) {
-            Block message = this.sendMessage(rc, toSend);
-            if(message == null) {
-                blocksToSend.push(message);
-            }
-        }
-
-        Transaction[] transactions = rc.getBlock(rc.getRoundNum()-1);
-        for(Transaction transaction: transactions) {
-            Block block = Block.extractBlock(transaction.getMessage(), ourTeam);
-            if(block != null) {
-                HQSurroundings surroundings = HQSurroundings.fromMessage(block, ourTeam);
-                if(surroundings!=null) {
-                    System.out.println("Our HQ is at: " + surroundings.hq);
-                    this.ourHQSurroundings = surroundings;
-                    continue;
-                }
-                if(block.getMessage()[0] == MessageType.WALL_DONE.getId()) {
-                    isWallDone = true;
-                    continue;
-                }
-                if(block.getMessage()[0] == MessageType.ENEMY_BASE.getId()) {
-                    this.enemyBaseLocation = new MapLocation(block.getMessage()[1], block.getMessage()[2]);
-                }
-            }
-        }
+        this.sendQueue.add(new LocationMessage(noBase, MessageType.NO_ENEMY_BASE));
     }
 
-    /**
-     * Returns the HQ location and adjacent locations where we want to build walls.
-     */
-    public HQSurroundings getWallLocations(RobotController rc) {
-        return this.ourHQSurroundings;
+    public void notifyEnemyBase(MapLocation enemyHq) {
+        this.enemyHq = enemyHq;
+        this.possibleEnemyHqs = new DynamicArray<>(1);
+        this.possibleEnemyHqs.add(enemyHq);
+        this.sendQueue.add(new LocationMessage(enemyHq, MessageType.ENEMY_BASE));
     }
 
-    /**
-     * Sends a map of the HQ and desired wall locations.
-     */
-    public void sendLandscaperLocations(RobotController rc, HQSurroundings surroundings) throws GameActionException {
-        this.blocksToSend.push(surroundings.toMessage());
-    }
-
-    /**
-     *  Says all the wall spots have been claimed by landscapers
-     */
-    public void wallClaimed(RobotController rc) {
-        int[] message = new int[6];
-        message[0] = MessageType.WALL_DONE.getId();
-        Block block = Block.createBlock(message, ourTeam);
-        this.blocksToSend.push(block);
-    }
-
-    /**
-     * Returns true if the "wallClaimed" message has been sent in the last 50 turns
-     */
-    public boolean isWallDone(RobotController rc) {
-        return isWallDone;
-    }
-
-    /**
-     * Get a bit at an index of an integer.
-     */
-    public static boolean getBit(int integer, int index) {
-        return (integer >> index) % 2 == 1;
-    }
-
-    /**
-     * Set the bit at an index of an integer, returning the modified integer.
-     */
-    public static int setBit(int integer, int index, boolean value) {
-        return value ? integer | (1 << index) : integer & ~(1 << index);
-    }
-
-    /**
-     * Set bits in an array at the correct position
-     */
-    public static void setBits(int[] array, int index, int numBits, int value) {
-        int currentInt = index/32;
-        int currentPosition = index % 32;
-        for(int count = 0; count < numBits; count++) {
-            array[currentInt] = setBit(array[currentInt], currentPosition, getBit(value, count));
-            currentPosition++;
-            if(currentPosition == 32) {
-                currentPosition=0;
-                currentInt++;
-            }
-        }
-    }
-
-    /**
-     * Get bits from an array at the correct position
-     */
-    public static int getBits(int[] array, int index, int numBits) {
-        int value = 0;
-        int currentInt = index/32;
-        int currentPosition = index % 32;
-        for(int count = 0; count < numBits; count++) {
-            value = value>>1;
-            value |= getBit(array[currentInt], currentPosition)? 1<<(numBits-1):0;
-            currentPosition++;
-            if(currentPosition == 32) {
-                currentPosition=0;
-                currentInt++;
-            }
-        }
-        return value;
-    }
-
-    public MapLocation getEnemyBaseLocation() {
-        return this.enemyBaseLocation;
-    }
-
-    /**
-     * Sends the enemyBaseLocation via the blockchain
-     */
-    public void setEnemyBaseLocation(MapLocation location) {
-        int[] message = new int[6];
-        message[0] = MessageType.ENEMY_BASE.getId();
-        message[1] = location.x;
-        message[2] = location.y;
-        this.blocksToSend.push(Block.createBlock(message, ourTeam));
+    public void notifyWallDone(boolean wallDone) {
+        this.wallDone = wallDone;
+        this.sendQueue.add(new BooleanMessage(wallDone, MessageType.WALL_DONE));
     }
 }

@@ -1,49 +1,42 @@
 package steamlocomotive;
 
-import battlecode.common.*;
 import org.junit.Test;
-import org.mockito.Mockito;
-
-import java.util.Arrays;
 
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.anyInt;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 public class BitconnectTest {
 
     @Test
-    public void testBitsetting() {
-        assertTrue(Bitconnect.getBit(1,0));
-        assertTrue(Bitconnect.getBit(Bitconnect.setBit(0, 10, true), 10));
-        assertFalse(Bitconnect.getBit(Bitconnect.setBit(1, 0, false), 0));
-    }
+    public void testBlockReaderWriter() {
+        Bitconnect.BlockBuilder builder = new Bitconnect.BlockBuilder();
+        builder.append(true);
+        builder.append(false);
+        builder.append(false);
+        builder.append(63, 6);
+        builder.append(14, 6);
+        builder.append(31, 5);
+        builder.append(0xFFFFFF, 24);
+        builder.append(19, 5);
+        builder.append(18, 5);
+        builder.append(26, 6);
+        builder.append(5, 6);
+        builder.append(true);
 
-    @Test
-    public void TestHQWallCode() throws GameActionException {
-        RobotController rc = Mockito.mock(RobotController.class);
-        Mockito.when(rc.getBlock(anyInt())).thenReturn(new Transaction[0]);
-        Mockito.when(rc.getTeamSoup()).thenReturn(Integer.MAX_VALUE);
-        Mockito.when(rc.getTeam()).thenReturn(Team.A);
-        Bitconnect bitconnect = new Bitconnect(rc, 10, 10);
+        int[] result = builder.finish();
 
-        MapLocation[] adj = new MapLocation[1];
-        adj[0] = new MapLocation(2,2);
+        Bitconnect.BlockReader reader = new Bitconnect.BlockReader(result);
 
-        Bitconnect.HQSurroundings surroundings = new Bitconnect.HQSurroundings(new MapLocation(1,2), adj, rc.getTeam());
-
-        bitconnect.sendLandscaperLocations(rc, surroundings);
-        Block block = bitconnect.blocksToSend.pop();
-
-        int[] expectedBlock = {42,1,2,4,0,0,6123412^42^1^2^4};
-        Block expected = Block.extractBlock(expectedBlock, rc.getTeam());
-
-        assertArrayEquals(expected.content, block.content);
-
-        Bitconnect.HQSurroundings result = Bitconnect.HQSurroundings.fromMessage(block, rc.getTeam());
-
-        assertTrue(surroundings.equals(result));
-        assertEquals(1, surroundings.adjacentWallSpots.size());
+        assertTrue(reader.readBoolean());
+        assertFalse(reader.readBoolean());
+        assertFalse(reader.readBoolean());
+        assertEquals(63, reader.readInteger(6));
+        assertEquals(14, reader.readInteger(6));
+        assertEquals(31, reader.readInteger(5));
+        assertEquals(0xFFFFFF, reader.readInteger(24));
+        assertEquals(19, reader.readInteger(5));
+        assertEquals(18, reader.readInteger(5));
+        assertEquals(26, reader.readInteger(6));
+        assertEquals(5, reader.readInteger(6));
+        assertTrue(reader.readBoolean());
     }
 }

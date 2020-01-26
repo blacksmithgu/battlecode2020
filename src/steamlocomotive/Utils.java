@@ -187,4 +187,14 @@ public class Utils {
             System.out.println(string);
         }
     }
+
+    public static int time(RobotController rc, GameConsumer<Object> func) throws GameActionException {
+        int bround = rc.getRoundNum();
+        int bbytes = Clock.getBytecodeNum() + bround * rc.getType().bytecodeLimit;
+        func.accept(null);
+        int around = rc.getRoundNum();
+        int abytes = Clock.getBytecodeNum() + rc.getRoundNum() * rc.getType().bytecodeLimit;
+
+        return abytes - bbytes;
+    }
 }

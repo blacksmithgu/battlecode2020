@@ -35,40 +35,8 @@ public class BugPathfinder {
         }
     }
 
-    /** Create a bug pathfinder pathfinding to the given location. */
-    public static BugPathfinder pathfindTo(MapLocation goal, FollowingDirection preferred, boolean allowAdjacent) {
-        return new BugPathfinder(goal, preferred, allowAdjacent);
-    }
-
-    /** Can move wrapper which also checks for flooding. */
-    public static boolean canMoveF(RobotController rc, Direction dir) {
-        MapLocation target = rc.getLocation().add(dir);
-        boolean flooded = false;
-        // TODO: If the soup is adjacent to land, we can still mine it.
-        try {
-            flooded = rc.senseFlooding(target);
-        } catch (GameActionException ex) { }
-
-        return rc.canMove(dir) && !flooded;
-    }
-
-    // The goal location we want to get close to.
-    private final MapLocation goal;
-
-    // The direction we are following obstacles.
-    private FollowingDirection followDirection;
-    // If we are currently following an obstacle.
-    private boolean following;
-    // The heading we are following the obstacle along.
-    private Direction heading;
-    // The distance we collided the obstacle at.
-    private int obstacleDistance;
-    // If true, then we can just pathfind to an adjacent tile to the goal.
-    private boolean allowAdjacent;
-    // List of locations that we have visited along a wall.
-    private DynamicArray<LocationAndDirection> wallPerimeter;
-
-    private class LocationAndDirection {
+    /** A pair of a map location and direction. */
+    private static class LocationAndDirection {
         MapLocation location;
         Direction heading;
 
@@ -94,6 +62,38 @@ public class BugPathfinder {
             return false;
         }
     }
+
+    /** Create a bug pathfinder pathfinding to the given location. */
+    public static BugPathfinder pathfindTo(MapLocation goal, FollowingDirection preferred, boolean allowAdjacent) {
+        return new BugPathfinder(goal, preferred, allowAdjacent);
+    }
+
+    /** Can move wrapper which also checks for flooding. */
+    public static boolean canMoveF(RobotController rc, Direction dir) {
+        MapLocation target = rc.getLocation().add(dir);
+        boolean flooded = false;
+        try {
+            flooded = rc.senseFlooding(target);
+        } catch (GameActionException ex) { }
+
+        return rc.canMove(dir) && !flooded;
+    }
+
+    // The goal location we want to get close to.
+    private final MapLocation goal;
+
+    // The direction we are following obstacles.
+    private FollowingDirection followDirection;
+    // If we are currently following an obstacle.
+    private boolean following;
+    // The heading we are following the obstacle along.
+    private Direction heading;
+    // The distance we collided the obstacle at.
+    private int obstacleDistance;
+    // If true, then we can just pathfind to an adjacent tile to the goal.
+    private boolean allowAdjacent;
+    // List of locations that we have visited along a wall.
+    private DynamicArray<LocationAndDirection> wallPerimeter;
 
     private BugPathfinder(MapLocation goal, FollowingDirection preferredDirection, boolean allowAdjacent) {
         this.goal = goal;
