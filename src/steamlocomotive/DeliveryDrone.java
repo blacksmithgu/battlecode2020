@@ -330,7 +330,7 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         // If no pathfinder, create it to the closest hard-to-reach soup.
-        if (this.pathfinder == null) this.pathfinder = this.newPathfinder(targetLoc, true);
+        if (this.pathfinder == null || this.pathfinder.goal() != targetLoc) this.pathfinder = this.newPathfinder(targetLoc, true);
 
         // Obtain a movement from the pathfinder and follow it.
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());

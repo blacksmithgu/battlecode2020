@@ -23,7 +23,7 @@ dist/*
 
 # User-specific stuff:
 battlecode-scaffold.iws
-run.sh
+script.sh
 
 # Eclipse user-specific files
 .classpath
