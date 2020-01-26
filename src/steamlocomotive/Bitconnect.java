@@ -431,7 +431,6 @@ public class Bitconnect {
                     break;
                 case HEARTBEAT:
                     HeartbeatMessage heartbeat = HeartbeatMessage.read(reader);
-
                     if (heartbeat.type == RobotType.DESIGN_SCHOOL) {
                         int hindex;
                         for (hindex = 0; hindex < designSchools.size(); hindex++) {

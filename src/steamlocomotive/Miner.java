@@ -441,9 +441,9 @@ public class Miner extends Unit {
 
         // Determine which buildings we should consider building based on how far away we are from existing buildings.
         boolean buildFulfillment = (this.fulfillment == null || this.fulfillment.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST)
-                && comms.fulfillmentCenters().size() == 0;
+                && comms.fulfillmentCenters().size() <= 1;
         boolean buildDesign = (this.design == null || this.design.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST)
-                && comms.designSchools().size() == 0;
+                && comms.designSchools().size() <= 1;
         boolean buildNetGun = (this.netGun == null || this.netGun.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_NET_GUN_MIN_DIST);
         boolean buildVaporator = (this.vaporator == null || this.vaporator.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_VAP_MIN_DIST);
 
