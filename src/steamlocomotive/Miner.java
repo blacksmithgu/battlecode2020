@@ -57,9 +57,29 @@ public class Miner extends Unit {
         comms.updateForTurn(rc);
 
         // Self destruct if blocking wall after round 500
-        if (rc.getRoundNum() > 500 && rc.getLocation().distanceSquaredTo(comms.hq())<=2) {
+        if (rc.getRoundNum() > 500 && rc.getRoundNum() < 700 && rc.getLocation().distanceSquaredTo(comms.hq())<=2) {
             rc.disintegrate();
             return;
+        }
+
+        if (rc.getRoundNum() > 700 && rc.getLocation().distanceSquaredTo(comms.hq())<=2){
+            if (rc.getTeamSoup() > 200){
+                Direction best = null;
+                int dist = 0;
+                for (Direction dir : Direction.allDirections()){
+                    if (rc.canBuildRobot(RobotType.DESIGN_SCHOOL, dir)){
+                        int tempDist = rc.adjacentLocation(dir).distanceSquaredTo(comms.hq());
+                        if (tempDist>dist){
+                            best = dir;
+                            dist = tempDist;
+                        }
+                    }
+                }
+                if (rc.canBuildRobot(RobotType.DESIGN_SCHOOL, best)){
+                    rc.buildRobot(RobotType.DESIGN_SCHOOL, best);
+                    rc.disintegrate();
+                }
+            }
         }
 
         // Sorry miner, you were in the way :(

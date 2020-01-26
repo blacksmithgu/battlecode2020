@@ -20,12 +20,28 @@ public class DesignSchool extends Unit {
     // The round that we broadcasted the last heartbeat.
     private int lastHeartbeatRound = 0;
 
+    // Inner landscaper count
+    private int innerLandscaperCount = 0;
+
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
         // Send out a heartbeat of our existence.
         if (rc.getRoundNum() - lastHeartbeatRound >= Bitconnect.HEARTBEAT_CADENCE) {
             comms.notifyHeartbeat(rc.getID(), rc.getLocation(), rc.getType(), rc.getRoundNum());
             lastHeartbeatRound = rc.getRoundNum();
+        }
+
+        if (rc.getRoundNum()>710 && rc.getRoundNum()<780 && rc.getLocation().distanceSquaredTo(comms.hq())<=8){
+            //built to construct inner landscapers
+            for (Direction dir : Direction.allDirections()){
+                if (rc.canBuildRobot(RobotType.LANDSCAPER, dir)){
+                    rc.buildRobot(RobotType.LANDSCAPER, dir);
+                    innerLandscaperCount++;
+                }
+            }
+            if (innerLandscaperCount==2){
+                rc.disintegrate();
+            }
         }
 
         // Update comms information in case we need it.

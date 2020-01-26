@@ -19,6 +19,9 @@ public class HQ extends Unit {
     // If true, we've planned out the wall successfully.
     private boolean planningDone = false;
 
+    // Build a special miner to build a design school inside the base to build landscapers to bolster the wall internally
+    private boolean builtSpecialMiner = false;
+
     // comms
     private Bitconnect comms;
 
@@ -65,6 +68,11 @@ public class HQ extends Unit {
             return;
         }
 
+        if (rc.getTeamSoup()>200 && comms.isWallDone() && rc.getRoundNum() > 700 && this.builtSpecialMiner==false){
+            this.buildSpecialMiner(rc);
+            this.builtSpecialMiner = true;
+        }
+
         // Soup-income based miner production. Note miners can't be produced once all landscapers have taken position.
         int teamSoup = rc.getTeamSoup();
         int currentRound = rc.getRoundNum();
@@ -77,6 +85,24 @@ public class HQ extends Unit {
             }
         }
     }
+    /**
+     * Build a special miner to build a design school internally to bolster HQ walls
+     */
+    public void buildSpecialMiner(RobotController rc) throws GameActionException{
+        Direction best = null;
+        int dist = 100;
+        for (Direction dir : Direction.allDirections()){
+            if (rc.canBuildRobot(RobotType.MINER,dir)){
+                if (rc.getLocation().distanceSquaredTo(rc.adjacentLocation(dir))<dist){
+                    best = dir;
+                    dist = rc.getLocation().distanceSquaredTo(rc.adjacentLocation(dir));
+                }
+            }
+        }
+        if (rc.canBuildRobot(RobotType.MINER, best))
+            rc.buildRobot(RobotType.MINER, best);
+    }
+
 
     /**
      * Build a miner close to soup; build randomly if no soup is visible.
@@ -101,7 +127,7 @@ public class HQ extends Unit {
             desired = desired.rotateRight();
         }
 
-        if (rc.canBuildRobot(RobotType.MINER, desired)) {
+        if (rc.canBuildRobot(RobotType.MINER, desired) && !comms.isWallDone()) {
             rc.buildRobot(RobotType.MINER, desired);
             if(rc.getRoundNum()%4==3) {
                 Utils.print("I made a builder!");
