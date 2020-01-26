@@ -49,7 +49,7 @@ public class Landscaper extends Unit {
 
     public Landscaper(int id) {
         super(id);
-        this.state = LandscaperState.MOVE_TO_WALL;
+        this.state = LandscaperState.TERRAFORM;
         this.pathfinder = null;
         this.pathfindSteps = 0;
     }
@@ -437,6 +437,10 @@ public class Landscaper extends Unit {
     public LandscaperState terraform(RobotController rc) throws GameActionException {
         // If we sense a nearby enemy building... say hello.
         if (this.closestEnemy != null) return LandscaperState.BURY_ENEMY;
+
+        if (rc.getRoundNum() > Config.WALL_BUILD_ROUND_NUM && !comms.isWallDone()) {
+            return LandscaperState.MOVE_TO_WALL;
+        }
 
         int ourHeight = rc.senseElevation(rc.getLocation());
         int terraHeight = Config.terraformHeight(rc.getRoundNum());
