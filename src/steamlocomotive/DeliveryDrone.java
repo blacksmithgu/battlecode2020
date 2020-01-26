@@ -477,17 +477,17 @@ public strictfp class DeliveryDrone extends Unit {
             Utils.ClosestRobot closest = Utils.closestRobot(rc, robot -> robot.type.canBePickedUp(), rc.getTeam().opponent());
 
             // If not close, swap back to roaming.
-            if (closest.robot == null) return new Transition(DroneState.ROAMING, false);
+            if (closest.robot == null && (comms.enemyHq() == null || rc.getLocation().distanceSquaredTo(comms.enemyHq()) > 25)) return new Transition(DroneState.ROAMING, false);
 
             // Pick it up if adjacent.
-            if (rc.canPickUpUnit(closest.robot.getID())) {
+            if (closest.robot != null && rc.canPickUpUnit(closest.robot.getID())) {
                 rc.pickUpUnit(closest.robot.getID());
                 return new Transition(DroneState.DUNKING, true);
             }
 
             // Otherwise move towards it.
             // TODO: Implement better chasing movement.
-            MapLocation targetEnemyLocation = closest.robot.location;
+            MapLocation targetEnemyLocation = closest.robot == null ? comms.enemyHq() : closest.robot.location;
             recklessAndDumbChasing(rc, targetEnemyLocation);
             return new Transition(DroneState.RECKLESS_CHASING, true);
         }
@@ -729,7 +729,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         // If drone near HQ and it's been long enough, swarm. There are four waves.
         // If drone is near HQ and it's not yet time, it sits still
-        if (rc.getLocation().distanceSquaredTo(comms.enemyHq()) < 25) {
+        if (rc.getLocation().distanceSquaredTo(comms.enemyHq()) <= 25) {
             if (rc.getRoundNum() > 1600 && rc.getRoundNum() < 1610) {
                 return new Transition(DroneState.RECKLESS_CHASING, false);
             } else if (rc.getRoundNum() > 2100 && rc.getRoundNum() < 2110) {
