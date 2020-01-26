@@ -323,17 +323,23 @@ public strictfp class DeliveryDrone extends Unit {
 
         RobotInfo[] nearbyRobots = rc.senseNearbyRobots();
         for(RobotInfo info: nearbyRobots) {
-            if(info.type == RobotType.DELIVERY_DRONE) {
-                if(info.team == rc.getTeam()) {
-                    if(!allyDrones.contains(info.getID())) {
+            if (info.type == RobotType.DELIVERY_DRONE) {
+                if (info.team == rc.getTeam()) {
+                    if (!allyDrones.contains(info.getID())) {
                         allyDrones.add(info.getID());
                     }
                 } else {
-                    if(!enemyDrones.contains(info.getID())) {
+                    if (!enemyDrones.contains(info.getID())) {
                         enemyDrones.add(info.getID());
                     }
                 }
             }
+        }
+        if (closestEnemyNetGun != null && rc.getLocation().distanceSquaredTo(closestEnemyNetGun) < GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
+            moveAway(rc, closestEnemyNetGun);
+        }
+        else if (comms.enemyHq() != null && rc.getLocation().distanceSquaredTo(comms.enemyHq()) < GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
+            moveAway(rc, comms.enemyHq());
         }
     }
 
@@ -1003,5 +1009,12 @@ public strictfp class DeliveryDrone extends Unit {
         if (enemyHQLoc != null && enemyHQLoc.distanceSquaredTo(target) <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) return false;
 
         return true;
+    }
+
+    private void moveAway(RobotController rc, MapLocation loc) throws GameActionException{
+        Direction directlyAway = loc.directionTo(rc.getLocation());
+        if (rc.canMove(directlyAway)) rc.move(directlyAway);
+        else if (rc.canMove(directlyAway.rotateRight())) rc.move(directlyAway.rotateRight());
+        else if (rc.canMove(directlyAway.rotateLeft())) rc.move(directlyAway.rotateLeft());
     }
 }
