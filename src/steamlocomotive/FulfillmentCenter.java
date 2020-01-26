@@ -18,13 +18,14 @@ public class FulfillmentCenter extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
-        if (!rc.isReady()) return;
-        comms.updateForTurn(rc);
-
         if (rc.getRoundNum() - lastHeartbeatRound >= Bitconnect.HEARTBEAT_CADENCE) {
             comms.notifyHeartbeat(rc.getID(), rc.getLocation(), rc.getType(), rc.getRoundNum());
             lastHeartbeatRound = rc.getRoundNum();
         }
+
+        comms.updateForTurn(rc);
+
+        if (!rc.isReady()) return;
 
         // The center scans nearby robots at the start of each turn, then passes the result into many of its checks
         // Soup amount is used in many places, so just call rc.getTeamSoup() once here

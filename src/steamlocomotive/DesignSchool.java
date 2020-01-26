@@ -22,14 +22,14 @@ public class DesignSchool extends Unit {
 
     @Override
     public void run(RobotController rc, int turn) throws GameActionException {
-        // Update comms information in case we need it.
-        comms.updateForTurn(rc);
-
         // Send out a heartbeat of our existence.
         if (rc.getRoundNum() - lastHeartbeatRound >= Bitconnect.HEARTBEAT_CADENCE) {
             comms.notifyHeartbeat(rc.getID(), rc.getLocation(), rc.getType(), rc.getRoundNum());
             lastHeartbeatRound = rc.getRoundNum();
         }
+
+        // Update comms information in case we need it.
+        comms.updateForTurn(rc);
 
         if (!rc.isReady()) return;
 

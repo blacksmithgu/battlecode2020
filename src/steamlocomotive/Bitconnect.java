@@ -365,6 +365,9 @@ public class Bitconnect {
             for (Transaction tr : trans) conn.handleTransaction(rc, tr);
         }
 
+        // Scan recent blocks to reduce chance of missing heartbeats.
+        conn.scanRecent(rc, 50);
+
         return conn;
     }
 
@@ -411,7 +414,6 @@ public class Bitconnect {
 
         for (int index = 0; index < numMessages; index++) {
             int messageId = reader.readInteger(MESSAGE_TYPE_BITS);
-            System.out.println("Recieved message ID " + messageId);
             switch (MessageType.fromId(messageId)) {
                 case ENEMY_BASE:
                     this.enemyHq = LocationMessage.read(reader, MessageType.ENEMY_BASE).location;
@@ -505,6 +507,14 @@ public class Bitconnect {
     private void handlePotentialEnemyLocs(MapLocation hq) {
         if (this.enemyHq != null) return;
         this.possibleEnemyHqs = Bitconnect.computeEnemyLocations(hq, this.width, this.height);
+    }
+
+    /** Scan recent blocks that have been advertised. */
+    public void scanRecent(RobotController rc, int pastRounds) throws GameActionException {
+        for (int round = Math.max(2, rc.getRoundNum() - pastRounds); round < rc.getRoundNum(); round++) {
+            Transaction[] trans = rc.getBlock(round);
+            for (Transaction tr : trans) this.handleTransaction(rc, tr);
+        }
     }
 
     /**
