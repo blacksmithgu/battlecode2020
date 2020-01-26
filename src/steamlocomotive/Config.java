@@ -101,7 +101,7 @@ public class Config {
     public static final int EQUALITY_ROUND = 350;
 
     public static final int BUILD_TRANSITION_ROUND = 600;
-    public static final int BUILD_ON_CREATION_ROUND_NUMBER = 350;
+    public static final int BUILD_ON_CREATION_ROUND_NUMBER = 220;
 
     // LANDSCAPER CONFIG
 
@@ -110,10 +110,16 @@ public class Config {
      */
     public static int terraformHeight(int round) {
         // Make this dynamic w/ time using the current water level. All landscapers should share this value.
-        if (round < 800) return 6;
-        else if (round < 1400) return 10;
+        if (round < 400) return 5;
+        else if (round < 800) return 10;
+        else if (round < 1400) return 15;
         else return 20;
     }
+
+    /**
+     * After this round, if wall has not been built, landscapers go to build wall. Before this round, they don't build wall.
+     */
+    public static final int WALL_BUILD_ROUND_NUM = 250;
 
     /**
      * If a design school is this distance or closer to friendly HQ, it considers itself "close" to it

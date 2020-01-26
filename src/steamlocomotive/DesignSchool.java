@@ -84,7 +84,7 @@ public class DesignSchool extends Unit {
 
         // Don't build late game landscapers
         if(rc.getRoundNum() > 1000) {
-            return;
+            halfProduction(rc, teamSoup, myID, currentRound);
         }
 
         // This is the typical landscaper production behavior, same as drone production

@@ -588,6 +588,18 @@ public class Miner extends Unit {
             if (desiredBuilding != RobotType.VAPORATOR && loc.isAdjacentTo(robot.location)) return false;
         }
 
+        if (desiredBuilding == RobotType.VAPORATOR) {
+            if (rc.getRoundNum() < 200 && rc.senseElevation(loc) < 3) {
+                return false;
+            }
+            else if (rc.getRoundNum() < 500 && rc.senseElevation(loc) < 10) {
+                return false;
+            }
+            else if (rc.getRoundNum() < 1000 && rc.senseElevation(loc) < 20) {
+                return false;
+            }
+        }
+
         // We'd like the building to not block our pathfinding if possible; at least three of the four cardinal directions
         // should not be flooded.
         int valid = 0;
