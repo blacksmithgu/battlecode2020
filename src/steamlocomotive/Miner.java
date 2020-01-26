@@ -566,7 +566,7 @@ public class Miner extends Unit {
 
         this.refinery = refine.getLocation();
 
-        if (rc.getRoundNum() > Config.BUILD_ON_CREATION_ROUND_NUMBER || rc.getRoundNum() % 4 == 0) isBaseBuilder = true;
+        if (rc.getRoundNum() > Config.BUILD_ON_CREATION_ROUND_NUMBER || (rc.getRoundNum() % 4 == 2 && rc.getRoundNum() >= 150)) isBaseBuilder = true;
         else isBaseBuilder = false;
     }
 
