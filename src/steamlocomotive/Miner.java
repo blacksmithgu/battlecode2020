@@ -302,6 +302,9 @@ public class Miner extends Unit {
 
     /** Travel behavior, where a miner travels to a known soup location. */
     public MinerState travel(RobotController rc) throws GameActionException {
+        // TODO: Hacky :/
+        if (isBaseBuilder) return MinerState.BASE_BUILDING;
+
         // Hacky solution to some bad behavior; if we can mine soup, immediately transition to mining.
         for (Direction dir : Direction.allDirections()) {
             if (rc.canMineSoup(dir)) return MinerState.MINE;
@@ -467,30 +470,27 @@ public class Miner extends Unit {
         boolean buildNetGun = (this.netGun == null || this.netGun.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_NET_GUN_MIN_DIST);
         boolean buildVaporator = (this.vaporator == null || this.vaporator.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_VAP_MIN_DIST);
 
-        if (!buildDesign && !buildFulfillment && !buildNetGun && !buildVaporator)  {
-            if (isBaseBuilder) return MinerState.BASE_BUILDING;
-            else return MinerState.TRAVEL;
-        }
+        if (!buildDesign && !buildFulfillment && !buildNetGun && !buildVaporator)
+            return MinerState.TRAVEL;
 
         // If things go wrong somehow, the miner defaults to wanting to build a vaporator
-        RobotType typeToBuild = RobotType.DESIGN_SCHOOL;
+        RobotType typeToBuild;
+        if (buildDesign && rc.getLocation().distanceSquaredTo(comms.hq()) < 80) typeToBuild = RobotType.DESIGN_SCHOOL;
+        else if (buildFulfillment && rc.getLocation().distanceSquaredTo(comms.hq()) < 60) typeToBuild = RobotType.FULFILLMENT_CENTER;
+        else if (buildVaporator) typeToBuild = RobotType.VAPORATOR;
+        else if (buildFulfillment) typeToBuild = RobotType.FULFILLMENT_CENTER;
+        else if (buildDesign) typeToBuild = RobotType.DESIGN_SCHOOL;
+        else if (buildNetGun) typeToBuild = RobotType.NET_GUN;
+        else typeToBuild = (this.rng.nextDouble() < Config.FULFILLMENT_CENTER_PROB) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
+
+        MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE, typeToBuild);
+
+        // No good locations, give up.
+        if (best == null) return MinerState.TRAVEL;
+
         // Scan the nearby surroundings for a good place within a few steps of us to build our building.
-        if (this.pathfinder == null) {
-            if (buildDesign && rc.getLocation().distanceSquaredTo(comms.hq()) < 80) typeToBuild = RobotType.DESIGN_SCHOOL;
-            else if (buildFulfillment && rc.getLocation().distanceSquaredTo(comms.hq()) < 60) typeToBuild = RobotType.FULFILLMENT_CENTER;
-            else if (buildVaporator) typeToBuild = RobotType.VAPORATOR;
-            else if (buildFulfillment) typeToBuild = RobotType.FULFILLMENT_CENTER;
-            else if (buildDesign) typeToBuild = RobotType.DESIGN_SCHOOL;
-            else if (buildNetGun) typeToBuild = RobotType.NET_GUN;
-            else typeToBuild = (this.rng.nextDouble() < Config.FULFILLMENT_CENTER_PROB) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
-
-            MapLocation best = this.findGoodBuildingLocation(rc, Config.BUILD_BUILDING_ROAM_DISTANCE, typeToBuild);
-
-            // No good locations, give up.
-            if (best == null) return MinerState.TRAVEL;
-
+        if (this.pathfinder == null || !this.pathfinder.goal().equals(best))
             this.pathfinder = this.newPathfinder(best, true);
-        }
 
         // If done, attempt to build.
         if (this.pathfinder.finished(rc.getLocation())) {
@@ -499,8 +499,7 @@ public class Miner extends Unit {
             if (rc.canBuildRobot(typeToBuild, towards))
                 rc.buildRobot(typeToBuild, towards);
 
-            if (isBaseBuilder) return MinerState.BASE_BUILDING;
-            else return MinerState.TRAVEL;
+            return MinerState.TRAVEL;
         }
 
         // Quit if we've wasted too much time on this.
