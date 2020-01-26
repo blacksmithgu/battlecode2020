@@ -13,7 +13,13 @@ public class Bitconnect {
     /**
      * Number of bits for encoding a message type.
      */
-    public static final int MESSAGE_TYPE_BITS = 3;
+    public static final int MESSAGE_TYPE_BITS;
+    static {
+        int result = 1;
+        while ((1 << result) < MessageType.values().length) result++;
+
+        MESSAGE_TYPE_BITS = result;
+    }
 
     /**
      * The possible different types of messages.
