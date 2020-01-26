@@ -2,17 +2,13 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
-import java.util.ArrayList;
-
 /**
  * Intermediary for global shared state; reads messages every turn to update state and can also queue messages
  * to inform other units of state changes.
  */
 public class Bitconnect {
 
-    /**
-     * Number of bits for encoding a message type.
-     */
+    /** Number of bits for encoding a message type. */
     public static final int MESSAGE_TYPE_BITS;
     static {
         int result = 1;
@@ -20,6 +16,12 @@ public class Bitconnect {
 
         MESSAGE_TYPE_BITS = result;
     }
+
+    /** Timeout for heartbeat messages. */
+    public static final int HEARTBEAT_TIMEOUT = 60;
+
+    /** The number of rounds between heartbeats. */
+    public static final int HEARTBEAT_CADENCE = 40;
 
     /**
      * The possible different types of messages.
@@ -29,7 +31,7 @@ public class Bitconnect {
         NO_ENEMY_BASE(1, false),
         ENEMY_BASE(2, true),
         WALL_DONE(3, true),
-        I_EXIST(4, true),
+        HEARTBEAT(4, true),
         UNKNOWN(999999, false);
 
         private final int id;
@@ -284,35 +286,47 @@ public class Bitconnect {
         }
     }
 
-    public static class RobotTypeAndIdMessage implements Message {
-        private final MessageType messageType;
-        private final RobotType type;
-        private final int id;
+    public static class HeartbeatMessage implements Message {
+        private int id;
+        private MapLocation location;
+        private RobotType type;
+        private int round;
 
-        public RobotTypeAndIdMessage(MessageType messageType, int id, RobotType robotType) {
+        public HeartbeatMessage(int id, MapLocation location, RobotType type, int round) {
             this.id = id;
-            this.type = robotType;
-            this.messageType = messageType;
+            this.location = location;
+            this.type = type;
+            this.round = round;
         }
 
-        @Override
-        public MessageType type() {
-            return messageType;
-        }
+        public int id() { return id; }
+        public MapLocation location() { return location; }
+        public int round() { return round; }
+        public RobotType robotType() { return type; }
 
         @Override
-        public int bitSize() {
-            return 32;
-        }
+        public MessageType type() { return MessageType.HEARTBEAT; }
+
+        @Override
+        public int bitSize() { return 16 + 12 + 16 + 4; }
 
         @Override
         public void write(BlockBuilder builder) {
-            builder.append(id, 32);
-            builder.append(Utils.valueOfRobotType(type), 4);
+            builder.append(this.id, 16);
+            builder.append(this.location.x, 6);
+            builder.append(this.location.y, 6);
+            builder.append(this.type.ordinal(), 4);
+            builder.append(this.round, 16);
         }
 
-        public static RobotTypeAndIdMessage read(BlockReader reader, MessageType type) {
-            return new RobotTypeAndIdMessage(type, reader.readInteger(32), Utils.robotTypeWithValue(reader.readInteger(4)));
+        public static HeartbeatMessage read(BlockReader reader) {
+            int id = reader.readInteger(16);
+            int locX = reader.readInteger(6);
+            int locY = reader.readInteger(6);
+            RobotType type = RobotType.values()[reader.readInteger(4)];
+            int round = reader.readInteger(16);
+
+            return new HeartbeatMessage(id, new MapLocation(locX, locY), type, round);
         }
     }
 
@@ -334,15 +348,11 @@ public class Bitconnect {
     // Queue of messages to attempt to send.
     private final DynamicArray<Message> sendQueue;
 
-    // IDs of design schools that have broadcasted existence in the past 30 turns
-    private ArrayList<Integer> designSchoolIds;
-    // Time until existence message expires for design schools, works alongside designSchoolIds
-    private ArrayList<Integer> designSchoolTimeout;
+    // Design schools that have broadcasted existence in the past 30 turns
+    private DynamicArray<HeartbeatMessage> designSchools;
 
-    // IDs of fulfillment centers that have broadcasted existence in the past 30 turns
-    private ArrayList<Integer> fulfillmentCenterIds;
-    // Time until existence message expires for fulfillment centers, works alongside fulfillmentCenterIds
-    private ArrayList<Integer> fulfillmentCenterTimeout;
+    // Fulfillment centers that have broadcasted existence in the past 30 turns.
+    private DynamicArray<HeartbeatMessage> fulfillmentCenters;
 
     /**
      * Initialize a new communications handler from the given robot controller. This initialization
@@ -385,6 +395,8 @@ public class Bitconnect {
         this.sendQueue = new DynamicArray<>(20);
         this.width = width;
         this.height = height;
+        this.fulfillmentCenters = new DynamicArray<>(4);
+        this.designSchools = new DynamicArray<>(4);
     }
 
     private void handleTransaction(RobotController rc, Transaction trans) throws GameActionException {
@@ -417,27 +429,25 @@ public class Bitconnect {
                 case WALL_DONE:
                     this.wallDone = BooleanMessage.read(reader, MessageType.WALL_DONE).value;
                     break;
-                case I_EXIST:
+                case HEARTBEAT:
+                    HeartbeatMessage heartbeat = HeartbeatMessage.read(reader);
 
-                    int senderId = RobotTypeAndIdMessage.read(reader, MessageType.I_EXIST).id;
-                    RobotType type = RobotTypeAndIdMessage.read(reader, MessageType.I_EXIST).type;
+                    if (heartbeat.type == RobotType.DESIGN_SCHOOL) {
+                        int hindex;
+                        for (hindex = 0; hindex < designSchools.size(); hindex++) {
+                            if (designSchools.get(hindex).id() == heartbeat.id()) break;
+                        }
 
-                    if (type.equals(RobotType.DESIGN_SCHOOL)) {
-                        int idx = designSchoolIds.indexOf(senderId);
-                        if (idx==-1){
-                            designSchoolIds.add(senderId);
-                            designSchoolTimeout.add(30);
-                        } else {
-                            designSchoolTimeout.set(idx, 30);
+                        if (hindex < designSchools.size()) designSchools.set(hindex, heartbeat);
+                        else designSchools.add(heartbeat);
+                    } else if (heartbeat.type == RobotType.FULFILLMENT_CENTER) {
+                        int hindex;
+                        for (hindex = 0; hindex < fulfillmentCenters.size(); hindex++) {
+                            if (fulfillmentCenters.get(hindex).id() == heartbeat.id()) break;
                         }
-                    } else if (type.equals(RobotType.FULFILLMENT_CENTER)) {
-                        int idx = fulfillmentCenterIds.indexOf(senderId);
-                        if (idx==-1){
-                            fulfillmentCenterIds.add(senderId);
-                            fulfillmentCenterTimeout.add(30);
-                        } else {
-                            fulfillmentCenterTimeout.set(idx, 30);
-                        }
+
+                        if (hindex < fulfillmentCenters.size()) fulfillmentCenters.set(hindex, heartbeat);
+                        else fulfillmentCenters.add(heartbeat);
                     }
                     break;
                 case NO_ENEMY_BASE:
@@ -512,19 +522,17 @@ public class Bitconnect {
         for (Transaction transaction : rc.getBlock(rc.getRoundNum() - 1))
             this.handleTransaction(rc, transaction);
 
-        for (int i = 0; i < fulfillmentCenterTimeout.size(); i++){
-            fulfillmentCenterTimeout.set(0,fulfillmentCenterTimeout.get(i)-1);
-            if (fulfillmentCenterTimeout.get(i)<0){
-                fulfillmentCenterTimeout.remove(i);
-                fulfillmentCenterIds.remove(i);
+        // Timeout heartbeats.
+        for (int i = 0; i < designSchools.size(); i++) {
+            if (designSchools.get(i).round < rc.getRoundNum() - HEARTBEAT_TIMEOUT) {
+                designSchools.removeQuick(i);
                 i--;
             }
         }
-        for (int i = 0; i < designSchoolTimeout.size(); i++){
-            designSchoolTimeout.set(0,designSchoolTimeout.get(i)-1);
-            if (designSchoolTimeout.get(i)<0){
-                designSchoolTimeout.remove(i);
-                designSchoolIds.remove(i);
+
+        for (int i = 0; i < fulfillmentCenters.size(); i++) {
+            if (fulfillmentCenters.get(i).round < rc.getRoundNum() - HEARTBEAT_TIMEOUT) {
+                fulfillmentCenters.removeQuick(i);
                 i--;
             }
         }
@@ -552,25 +560,14 @@ public class Bitconnect {
     }
 
     /**
-     * Returns the number of Design Schools that have broadcasted their existence in the last 40 turns
+     * Returns a list of design schools that have broadcasted their existence recently.
      */
-    public int getNumDesignSchools() {
-        return designSchoolIds.size();
-    }
+    public DynamicArray<HeartbeatMessage> designSchools() { return designSchools; }
 
     /**
-     * Returns the number of Fulfillment Centers that have broadcasted their existence in the last 40 turns
+     * Returns a list of fulfillment centers that have broadcasted their existence recently.
      */
-    public int getNumFulfillmentCenters() {
-        return fulfillmentCenterIds.size();
-    }
-
-    /**
-     * Sent by a building to notify everyone of its existence, rebroadcasted every 30 turns by the buildings
-     */
-    public void iExist(RobotInfo rob) {
-        this.sendQueue.add(new RobotTypeAndIdMessage(MessageType.I_EXIST, rob.ID, rob.type));
-    }
+    public DynamicArray<HeartbeatMessage> fulfillmentCenters() { return fulfillmentCenters; }
 
     /**
      * The list of possible enemy locations; null if we don't know our own HQ locations.
@@ -581,6 +578,10 @@ public class Bitconnect {
 
     public boolean isWallDone() {
         return this.wallDone;
+    }
+
+    public void notifyHeartbeat(int id, MapLocation location, RobotType type, int round) {
+        this.sendQueue.add(new HeartbeatMessage(id, location, type, round));
     }
 
     public void notifyHqSurroundings(MapLocation hq, DynamicArray<MapLocation> walls) {

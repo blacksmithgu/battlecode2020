@@ -42,6 +42,13 @@ public class DynamicArray<T> implements Iterable<T> {
         size++;
     }
 
+    /** Update the value of an object in the array. */
+    public void set(int index, T value) {
+        if (size <= index) throw new IndexOutOfBoundsException("Index " + index + " out of bounds (size = " + size + ")");
+
+        content[index] = value;
+    }
+
     /**
      * Get an object at an index in the array
      */

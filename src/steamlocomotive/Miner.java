@@ -57,7 +57,10 @@ public class Miner extends Unit {
         comms.updateForTurn(rc);
 
         // Self destruct if blocking wall after round 500
-        stopBlockingWall(rc);
+        if (rc.getRoundNum() > 500 && rc.getLocation().distanceSquaredTo(comms.hq())<=2) {
+            rc.disintegrate();
+            return;
+        }
 
         // Sorry miner, you were in the way :(
         if (wallStarted(rc, rc.getLocation()) && comms.walls() != null && comms.walls().indexOf(rc.getLocation()) != -1 && rc.senseElevation(rc.getLocation()) >= 20) {
@@ -105,13 +108,6 @@ public class Miner extends Unit {
 
         // Useful for debugging.
         if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 255, 0, 0);
-    }
-
-    /** Self destruct if on wall after a certain turn */
-    public void stopBlockingWall(RobotController rc) throws GameActionException {
-        if (rc.getRoundNum()>500 && rc.getLocation().distanceSquaredTo(comms.hq())<=2){
-            rc.disintegrate();
-        }
     }
 
     /** Update soup cluster and dropoff state. */
@@ -444,8 +440,10 @@ public class Miner extends Unit {
         if (rc.getTeamSoup() < RobotType.FULFILLMENT_CENTER.cost || rc.getTeamSoup() < RobotType.DESIGN_SCHOOL.cost) return MinerState.TRAVEL;
 
         // Determine which buildings we should consider building based on how far away we are from existing buildings.
-        boolean buildFulfillment = (this.fulfillment == null || this.fulfillment.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST);
-        boolean buildDesign = (this.design == null || this.design.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST);
+        boolean buildFulfillment = (this.fulfillment == null || this.fulfillment.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST)
+                && comms.fulfillmentCenters().size() == 0;
+        boolean buildDesign = (this.design == null || this.design.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST)
+                && comms.designSchools().size() == 0;
         boolean buildNetGun = (this.netGun == null || this.netGun.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_NET_GUN_MIN_DIST);
         boolean buildVaporator = (this.vaporator == null || this.vaporator.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_VAP_MIN_DIST);
 
