@@ -76,6 +76,9 @@ public strictfp class DeliveryDrone extends Unit {
     // Index of which symmetric HQ location we are currently using
     private int enemyHqSymmetryIdx;
 
+    DynamicArray<Integer> allyDrones;
+    DynamicArray<Integer> enemyDrones;
+
     public DeliveryDrone(int id) {
         super(id);
         this.state = DroneState.ROAMING;
@@ -296,6 +299,21 @@ public strictfp class DeliveryDrone extends Unit {
                 }
             }
         });
+
+        RobotInfo[] nearbyRobots = rc.senseNearbyRobots();
+        for(RobotInfo info: nearbyRobots) {
+            if(info.type == RobotType.DELIVERY_DRONE) {
+                if(info.team == rc.getTeam()) {
+                    if(!allyDrones.contains(info.getID())) {
+                        allyDrones.add(info.getID());
+                    }
+                } else {
+                    if(!enemyDrones.contains(info.getID())) {
+                        enemyDrones.add(info.getID());
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -432,11 +450,11 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         // If it's past round 1000, swarm the enemy base
-//        if (rc.getRoundNum() >= 1000 && comms.enemyHq() != null && !rc.isCurrentlyHoldingUnit()) {
-//            return new Transition(DroneState.SWARMING, false);
-//        }
+        if (rc.getRoundNum() >= 1000 && comms.enemyHq() != null && !rc.isCurrentlyHoldingUnit() && allyDrones.size() > enemyDrones.size()) {
+            return new Transition(DroneState.SWARMING, false);
+        }
 
-        if (rc.getRoundNum() >= 1000 && comms.enemyHq() != null && !rc.isCurrentlyHoldingUnit()) {
+        if (rc.getRoundNum() >= 1000 && !rc.isCurrentlyHoldingUnit() && (allyDrones.size() <= enemyDrones.size() || comms.enemyHq() == null )) {
             return new Transition(DroneState.DRONE_WALL, false);
         }
 
@@ -942,6 +960,8 @@ public strictfp class DeliveryDrone extends Unit {
     @Override
     public void onCreation(RobotController rc) throws GameActionException {
         this.comms = Bitconnect.initialize(rc);
+        this.allyDrones = new DynamicArray<>(50);
+        this.enemyDrones = new DynamicArray<>(50);
         comms.scanRecent(rc, 50);
     }
 
