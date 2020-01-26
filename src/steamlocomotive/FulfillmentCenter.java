@@ -53,6 +53,13 @@ public class FulfillmentCenter extends Unit {
             return;
         }
 
+        // Spam drones in the late game
+        if(rc.getRoundNum() > 1600) {
+            buildDroneBasic(rc);
+            numDronesBuilt++;
+            return;
+        }
+
         // This is the typical drone production behavior
         // Ramps up production rate based on the amount of soup. Over 2000 soup, it makes a drone every turn.
         // TODO: Make the round cutoffs and rates into easily-twiddled constants in Config

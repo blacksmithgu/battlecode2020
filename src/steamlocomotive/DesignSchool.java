@@ -45,7 +45,7 @@ public class DesignSchool extends Unit {
         // The design school near the HQ builds 8 landscapers quickly, so that the wall gets up as fast as possible
         // Only does this building every other turn so that the first design school can get out its early drones
         // Added +50 so this doesn't kill our early econ and prevent any drone building
-        if (isNearHQ && numLandscapersBuilt < comms.walls().size() && rc.getTeamSoup() >= RobotType.REFINERY.cost + 20) {
+        if (isNearHQ && !comms.isWallDone() && numLandscapersBuilt < comms.walls().size() && rc.getTeamSoup() >= RobotType.REFINERY.cost + 20) {
             buildLandscaperBasic(rc);
             return;
         }
@@ -54,6 +54,11 @@ public class DesignSchool extends Unit {
         // The plus 10 is so that emergency drones are more likely to be built than emergency landscapers
         if (isNearHQ && rc.canSenseLocation(comms.hq()) && rc.getTeamSoup() >= RobotType.LANDSCAPER.cost + 10 && hqNeedsHelp(rc, comms.hq(), nearbyRobots, rc.getTeam())) {
             buildLandscaperBasic(rc);
+            return;
+        }
+
+        // Don't build late game landscapers
+        if(rc.getRoundNum() > 1000) {
             return;
         }
 

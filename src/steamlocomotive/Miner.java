@@ -322,8 +322,8 @@ public class Miner extends Unit {
         if (comms.hq().equals(this.refinery) && rc.canSenseLocation(comms.hq()) && wallStarted(rc, comms.hq()))
             this.refinery = null;
 
-        // No refinery to drop off to; this should not happen often, so we'll force building a refinery here.
-        if (this.refinery == null) return MinerState.FORCE_REFINERY;
+        // No refinery to drop off to or refinery seems unreachable; this should not happen often, so we'll force building a refinery here.
+        if (this.refinery == null || pathfindSteps > 200) return MinerState.FORCE_REFINERY;
 
         // Set up the pathfinder if it's currently null.
         if (this.pathfinder == null || !this.pathfinder.goal().equals(this.refinery))
