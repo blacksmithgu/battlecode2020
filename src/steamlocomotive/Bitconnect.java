@@ -13,7 +13,7 @@ public class Bitconnect {
     /**
      * Number of bits for encoding a message type.
      */
-    public static final int MESSAGE_TYPE_BITS = 2;
+    public static final int MESSAGE_TYPE_BITS = 3;
 
     /**
      * The possible different types of messages.
@@ -278,6 +278,38 @@ public class Bitconnect {
         }
     }
 
+    public static class RobotTypeAndIdMessage implements Message {
+        private final MessageType messageType;
+        private final RobotType type;
+        private final int id;
+
+        public RobotTypeAndIdMessage(MessageType messageType, int id, RobotType robotType) {
+            this.id = id;
+            this.type = robotType;
+            this.messageType = messageType;
+        }
+
+        @Override
+        public MessageType type() {
+            return messageType;
+        }
+
+        @Override
+        public int bitSize() {
+            return 32;
+        }
+
+        @Override
+        public void write(BlockBuilder builder) {
+            builder.append(id, 32);
+            builder.append(Utils.valueOfRobotType(type), 4);
+        }
+
+        public static RobotTypeAndIdMessage read(BlockReader reader, MessageType type) {
+            return new RobotTypeAndIdMessage(type, reader.readInteger(32), Utils.robotTypeWithValue(reader.readInteger(4)));
+        }
+    }
+
     // Map width and height.
     private final int width, height;
 
@@ -381,9 +413,8 @@ public class Bitconnect {
                     break;
                 case I_EXIST:
 
-                    // TODO: Implement reading RobotInfoMessage and uncomment lines below
-                    //int senderId = RobotInfoMessage.read(reader, MessageType.I_EXIST).getID();
-                    //RobotType type = RobotInfoMessage.read(reader, MessageType.I_EXIST).type();
+                    int senderId = RobotTypeAndIdMessage.read(reader, MessageType.I_EXIST).id;
+                    RobotType type = RobotTypeAndIdMessage.read(reader, MessageType.I_EXIST).type;
 
                     if (type.equals(RobotType.DESIGN_SCHOOL)) {
                         int idx = designSchoolIds.indexOf(senderId);
@@ -532,8 +563,7 @@ public class Bitconnect {
      * Sent by a building to notify everyone of its existence, rebroadcasted every 30 turns by the buildings
      */
     public void iExist(RobotInfo rob) {
-        //TODO: uncomment this line after implementing RobotInfoMessage
-        //this.sendQueue.add(new RobotInfoMessage(rob, MessageType.I_EXIST));
+        this.sendQueue.add(new RobotTypeAndIdMessage(MessageType.I_EXIST, rob.ID, rob.type));
     }
 
     /**
