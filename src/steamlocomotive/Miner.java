@@ -269,10 +269,10 @@ public class Miner extends Unit {
         if (rc.getTeamSoup() > 1000 && !this.triedBuilding) return MinerState.DREAMING_ABOUT_BUILDINGS;
 
         // If it's sufficiently late in the game, transition to being a base builder
-        if (rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND) {
-            isBaseBuilder = true;
-            return MinerState.BASE_BUILDING;
-        }
+//        if (rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND) {
+//            isBaseBuilder = true;
+//            return MinerState.BASE_BUILDING;
+//        }
 
         // Otherwise, roam around looking for soup and other objects of interest.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
@@ -577,8 +577,9 @@ public class Miner extends Unit {
 
         this.refinery = refine.getLocation();
 
-        if (rc.getRoundNum() > Config.BUILD_ON_CREATION_ROUND_NUMBER || (rc.getRoundNum() % 4 == 2 && rc.getRoundNum() >= 150)) isBaseBuilder = true;
-        else isBaseBuilder = false;
+//        if (rc.getRoundNum() > Config.BUILD_ON_CREATION_ROUND_NUMBER || (rc.getRoundNum() % 4 == 2 && rc.getRoundNum() >= 150)) isBaseBuilder = true;
+//        else isBaseBuilder = false;
+        isBaseBuilder = false;
     }
 
     /** Determines if a building location is a good one according to a few heuristics. */
