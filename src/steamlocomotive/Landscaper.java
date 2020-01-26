@@ -10,8 +10,12 @@ public class Landscaper extends Unit {
     public enum LandscaperState {
         // WE WILL BUILD A WALL AND MAKE THE BLUE TEAM PAY FOR IT.
         BUILD_WALL,
+        // Bolster the core wall being built.
+        BOLSTER_WALL,
         // Move towards building the wall. Elect Donald Trump today.
         MOVE_TO_WALL,
+        // Move to a bolstering location around the wall.
+        MOVE_TO_BOLSTER,
         // Bury a detected enemy building.
         BURY_ENEMY,
         // Terraform towards the enemy base.
@@ -120,7 +124,7 @@ public class Landscaper extends Unit {
      * The landscaper is building a wall around HQ.
      */
     public LandscaperState buildWall(RobotController rc) throws GameActionException {
-        // Start equalizing if all landscapers have arrived.
+        // Start equalizing if all landscapers have arrived or if we need this wall up ASAP.
         if (comms.isWallDone() || rc.getRoundNum() > Config.EQUALITY_ROUND) equalize = true;
 
         // Dig from the HQ if it is being buried, otherwise dig off-lattice.
@@ -162,6 +166,16 @@ public class Landscaper extends Unit {
         }
 
         return LandscaperState.BUILD_WALL;
+    }
+
+    /** The landscaper is moving to bolster the wall, terraforming along the way. */
+    public LandscaperState moveToBolster(RobotController rc) throws GameActionException {
+        return LandscaperState.MOVE_TO_BOLSTER;
+    }
+
+    /** The landscaper is bolstering the wall from an adjacent tile. */
+    public LandscaperState bolsterWall(RobotController rc) throws GameActionException {
+        return LandscaperState.BOLSTER_WALL;
     }
 
     /**
@@ -220,7 +234,6 @@ public class Landscaper extends Unit {
         }
 
         // Move towards the wall.
-        // TODO: Terraform towards the wall to speed things up.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> BugPathfinder.canMoveF(rc, dir));
         if (move != null && move != Direction.CENTER) rc.move(move);
         this.pathfindSteps++;
@@ -254,10 +267,8 @@ public class Landscaper extends Unit {
         }
 
         // We're not adjacent to anything; pathfind towards enemy building using terraforming logic.
-        if (this.pathfinder == null || !this.pathfinder.goal().equals(this.closestEnemy.location) || this.pathfinder.finished(rc.getLocation())) {
+        if (this.pathfinder == null || !this.pathfinder.goal().equals(this.closestEnemy.location) || this.pathfinder.finished(rc.getLocation()))
             this.pathfinder = this.newPathfinder(this.closestEnemy.location, true);
-            System.out.println("new pathy");
-        }
 
         // Obtain a movement from the pathfinder and follow it.
         Direction move = this.pathfinder.findMove(rc.getLocation(), dir -> onLattice(rc.getLocation().add(dir)) && Landscaper.canMoveL(rc, dir));
@@ -332,12 +343,7 @@ public class Landscaper extends Unit {
 
         // If the pathfinder is inactive or finished, pick a new random location to pathfind to.
         if (this.pathfinder == null || this.pathfinder.finished(rc.getLocation()) || this.pathfindSteps > Config.MAX_ROAM_DISTANCE) {
-            // TODO: More intelligent target selection. We choose randomly for now.
-            MapLocation target;
-            if (comms.enemyHq() != null) target = comms.enemyHq();
-            else target = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
-
-            this.pathfinder = this.newPathfinder(target, true);
+            this.pathfinder = this.newPathfinder(this.getRoamingTarget(rc, 6), true);
             this.pathfindSteps = 0;
         }
 
@@ -361,7 +367,7 @@ public class Landscaper extends Unit {
      */
     private Direction smartDigDirection(RobotController rc) throws GameActionException {
         Direction bestDirection = null;
-        boolean onLattice = true, hasAlly = true;
+        boolean isBolster = true, onLattice = true, hasAlly = true;
         for (Direction dir : Direction.allDirections()) {
             if (dir == Direction.CENTER) continue;
 
@@ -372,16 +378,21 @@ public class Landscaper extends Unit {
             RobotInfo robot = rc.senseRobotAtLocation(loc);
             if (robot != null && !robot.type.canBePickedUp()) continue;
 
+            // TODO: No matter how I try, this is ugly without using an actual comparator :(
             boolean better = false;
             if (!onLattice && onLattice(loc)) continue;
             else if (onLattice && !onLattice(loc)) better = true;
 
+            if (!better && !isBolster && isBolsterTile(loc)) continue;
+            else if (isBolster && !isBolsterTile(loc)) better = true;
+
             boolean locAlly = robot != null && robot.getTeam().isPlayer();
-            if (!hasAlly && locAlly) continue;
+            if (!better && !hasAlly && locAlly) continue;
             else if (hasAlly && !locAlly) better = true;
 
             if (better) {
                 bestDirection = dir;
+                isBolster = isBolsterTile(loc);
                 onLattice = onLattice(loc);
                 hasAlly = locAlly;
             }
@@ -394,15 +405,24 @@ public class Landscaper extends Unit {
      * Returns true if this tile is on the checkerboard and should thus be filled in.
      */
     private boolean onLattice(MapLocation loc) {
-        return (loc.x % 2 == 0) || (loc.y % 2 == 0);
+        return ((loc.x - comms.hq().x) % 2 == 0) || ((loc.y - comms.hq().y) % 2 == 0);
     }
 
     /**
      * Returns true if the location is one of the HQ wall locations.
      */
     private boolean isWallTile(MapLocation loc) {
-        // TODO: Remove and replace with using surroundings directly.
         return comms.walls() != null && comms.walls().indexOf(loc) != -1;
+    }
+
+    /**
+     * Returns true if the location is a bolster location (i.e., landscapers can stand here to bolster the wall).
+     */
+    private boolean isBolsterTile(MapLocation loc) {
+        if (comms.hq() == null) return false;
+
+        int dist = comms.hq().distanceSquaredTo(loc);
+        return dist > 4 && dist < 9;
     }
 
     /** Moves in a given direction (which respects canMoveL), terraforming if necessary. */
@@ -426,6 +446,16 @@ public class Landscaper extends Unit {
         }
 
         return false;
+    }
+
+    /** Choose a target near the HQ when roaming. */
+    public MapLocation getRoamingTarget(RobotController rc, int dist) throws GameActionException {
+        MapLocation target = new MapLocation(comms.hq().x+rng.nextInt(dist*2+1)-dist, comms.hq().y+rng.nextInt(dist*2+1)-dist);
+        for (int timeout = 0; timeout < 100 && !rc.onTheMap(target); timeout++) {
+            target = new MapLocation(comms.hq().x+rng.nextInt(dist*2+1)-dist, comms.hq().y+rng.nextInt(dist*2+1)-dist);
+        }
+
+        return target;
     }
 
     /**

@@ -395,7 +395,6 @@ public class LandscaperTEMP extends Unit {
         return bolsterLoc;
     }
 
-
     public boolean coreWallDone(RobotController rc) throws GameActionException {
         for (MapLocation loc : comms.walls()) {
             if (rc.canSenseLocation(loc) && !rc.isLocationOccupied(loc)) {
