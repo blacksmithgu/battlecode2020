@@ -19,7 +19,7 @@ public class FulfillmentCenter extends Unit {
         comms.updateForTurn(rc);
 
         if (rc.getRoundNum()%30==0)
-            comms.iExist(rc.getType());
+            comms.iExist(rc.senseRobotAtLocation(rc.getLocation()));
 
         // The center scans nearby robots at the start of each turn, then passes the result into many of its checks
         // Soup amount is used in many places, so just call rc.getTeamSoup() once here

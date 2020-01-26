@@ -23,7 +23,7 @@ public class DesignSchool extends Unit {
         comms.updateForTurn(rc);
 
         if (rc.getRoundNum()%30==0)
-            comms.iExist(rc.getType());
+            comms.iExist(rc.senseRobotAtLocation(rc.getLocation()));
 
         if (!rc.isReady()) return;
 

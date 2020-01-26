@@ -2,21 +2,28 @@ package steamlocomotive;
 
 import battlecode.common.*;
 
+import java.util.ArrayList;
+
 /**
  * Intermediary for global shared state; reads messages every turn to update state and can also queue messages
  * to inform other units of state changes.
  */
 public class Bitconnect {
 
-    /** Number of bits for encoding a message type. */
+    /**
+     * Number of bits for encoding a message type.
+     */
     public static final int MESSAGE_TYPE_BITS = 2;
 
-    /** The possible different types of messages. */
+    /**
+     * The possible different types of messages.
+     */
     private enum MessageType {
         HQ_SURROUNDINGS(0, true),
         NO_ENEMY_BASE(1, false),
         ENEMY_BASE(2, true),
         WALL_DONE(3, true),
+        I_EXIST(4, true),
         UNKNOWN(999999, false);
 
         private final int id;
@@ -44,7 +51,9 @@ public class Bitconnect {
         }
     }
 
-    /** Utility class which allows for appending bits to a block dynamically. */
+    /**
+     * Utility class which allows for appending bits to a block dynamically.
+     */
     public static class BlockBuilder {
         private int[] data;
         private int index;
@@ -87,7 +96,9 @@ public class Bitconnect {
         }
     }
 
-    /** Reads data from a block iteratively. */
+    /**
+     * Reads data from a block iteratively.
+     */
     public static class BlockReader {
         private final int[] data;
         private int index;
@@ -123,19 +134,29 @@ public class Bitconnect {
         }
     }
 
-    /** A message implementation; allows for converting the message to a block. Check it's type to downcast. */
+    /**
+     * A message implementation; allows for converting the message to a block. Check it's type to downcast.
+     */
     private interface Message {
-        /** The type of this message (see MessageType). */
+        /**
+         * The type of this message (see MessageType).
+         */
         MessageType type();
 
-        /** The size of the contents of this message in bits. */
+        /**
+         * The size of the contents of this message in bits.
+         */
         int bitSize();
 
-        /** Write this message to the given block builder. */
+        /**
+         * Write this message to the given block builder.
+         */
         void write(BlockBuilder builder);
     }
 
-    /** Wall locations and current status of the walls. */
+    /**
+     * Wall locations and current status of the walls.
+     */
     public static class HQSurroundings implements Message {
         // Core wall locations (between 3 and 8) to build the wall.
         private final DynamicArray<MapLocation> walls;
@@ -198,13 +219,19 @@ public class Bitconnect {
             this.type = type;
         }
 
-        public MapLocation location() { return location; }
+        public MapLocation location() {
+            return location;
+        }
 
         @Override
-        public MessageType type() { return type; }
+        public MessageType type() {
+            return type;
+        }
 
         @Override
-        public int bitSize() { return 12; }
+        public int bitSize() {
+            return 12;
+        }
 
         @Override
         public void write(BlockBuilder builder) {
@@ -227,13 +254,19 @@ public class Bitconnect {
             this.value = value;
         }
 
-        public boolean value() { return value; }
+        public boolean value() {
+            return value;
+        }
 
         @Override
-        public MessageType type() { return type; }
+        public MessageType type() {
+            return type;
+        }
 
         @Override
-        public int bitSize() { return 1; }
+        public int bitSize() {
+            return 1;
+        }
 
         @Override
         public void write(BlockBuilder builder) {
@@ -263,6 +296,16 @@ public class Bitconnect {
     // Queue of messages to attempt to send.
     private final DynamicArray<Message> sendQueue;
 
+    // IDs of design schools that have broadcasted existence in the past 30 turns
+    private ArrayList<Integer> designSchoolIds;
+    // Time until existence message expires for design schools, works alongside designSchoolIds
+    private ArrayList<Integer> designSchoolTimeout;
+
+    // IDs of fulfillment centers that have broadcasted existence in the past 30 turns
+    private ArrayList<Integer> fulfillmentCenterIds;
+    // Time until existence message expires for fulfillment centers, works alongside fulfillmentCenterIds
+    private ArrayList<Integer> fulfillmentCenterTimeout;
+
     /**
      * Initialize a new communications handler from the given robot controller. This initialization
      * can be potentially expensive, since it scans early blocks for HQ location and wall state.
@@ -277,7 +320,9 @@ public class Bitconnect {
         return conn;
     }
 
-    /** Compute potential enemy HQ locations based on our HQ location. */
+    /**
+     * Compute potential enemy HQ locations based on our HQ location.
+     */
     public static DynamicArray<MapLocation> computeEnemyLocations(MapLocation hq, int width, int height) {
         DynamicArray<MapLocation> possibleEnemyHqs = new DynamicArray<>(3);
         MapLocation curr = hq;
@@ -289,7 +334,9 @@ public class Bitconnect {
         return possibleEnemyHqs;
     }
 
-    /** Checksum the indices of the given integer array; use different algorithms depending on the team. */
+    /**
+     * Checksum the indices of the given integer array; use different algorithms depending on the team.
+     */
     public static int checksum(int[] data, int start, int end, Team team) {
         int val = (team == Team.A) ? 6123412 : 32742361;
         for (int index = start; index < end; index++) val ^= data[index];
@@ -332,6 +379,30 @@ public class Bitconnect {
                 case WALL_DONE:
                     this.wallDone = BooleanMessage.read(reader, MessageType.WALL_DONE).value;
                     break;
+                case I_EXIST:
+
+                    // TODO: Implement reading RobotInfoMessage and uncomment lines below
+                    //int senderId = RobotInfoMessage.read(reader, MessageType.I_EXIST).getID();
+                    //RobotType type = RobotInfoMessage.read(reader, MessageType.I_EXIST).type();
+
+                    if (type.equals(RobotType.DESIGN_SCHOOL)) {
+                        int idx = designSchoolIds.indexOf(senderId);
+                        if (idx==-1){
+                            designSchoolIds.add(senderId);
+                            designSchoolTimeout.add(30);
+                        } else {
+                            designSchoolTimeout.set(idx, 30);
+                        }
+                    } else if (type.equals(RobotType.FULFILLMENT_CENTER)) {
+                        int idx = fulfillmentCenterIds.indexOf(senderId);
+                        if (idx==-1){
+                            fulfillmentCenterIds.add(senderId);
+                            fulfillmentCenterTimeout.add(30);
+                        } else {
+                            fulfillmentCenterTimeout.set(idx, 30);
+                        }
+                    }
+                    break;
                 case NO_ENEMY_BASE:
                     MapLocation enemyLoc = LocationMessage.read(reader, MessageType.NO_ENEMY_BASE).location;
                     if (this.possibleEnemyHqs != null) {
@@ -340,12 +411,15 @@ public class Bitconnect {
                         if (this.possibleEnemyHqs.size() == 1) this.enemyHq = this.possibleEnemyHqs.get(0);
                     }
                     break;
-                default: throw new IllegalStateException("Unrecognized message type during transaction parsing");
+                default:
+                    throw new IllegalStateException("Unrecognized message type during transaction parsing");
             }
         }
     }
 
-    /** Send messages optimally by packing multiple messages into a single transaction. */
+    /**
+     * Send messages optimally by packing multiple messages into a single transaction.
+     */
     private boolean clusteredSend(RobotController rc) throws GameActionException {
         if (this.sendQueue.size() == 0) return false;
 
@@ -395,41 +469,83 @@ public class Bitconnect {
         if (rc.getRoundNum() == 1) return;
 
         // Send operations; repeatedly send until the clustered send fails.
-        while (this.clusteredSend(rc));
+        while (this.clusteredSend(rc)) ;
 
         // Recieve operations.
         for (Transaction transaction : rc.getBlock(rc.getRoundNum() - 1))
             this.handleTransaction(rc, transaction);
+
+        for (int i = 0; i < fulfillmentCenterTimeout.size(); i++){
+            fulfillmentCenterTimeout.set(0,fulfillmentCenterTimeout.get(i)-1);
+            if (fulfillmentCenterTimeout.get(i)<0){
+                fulfillmentCenterTimeout.remove(i);
+                fulfillmentCenterIds.remove(i);
+                i--;
+            }
+        }
+        for (int i = 0; i < designSchoolTimeout.size(); i++){
+            designSchoolTimeout.set(0,designSchoolTimeout.get(i)-1);
+            if (designSchoolTimeout.get(i)<0){
+                designSchoolTimeout.remove(i);
+                designSchoolIds.remove(i);
+                i--;
+            }
+        }
     }
 
-    /** Obtain our HQ location, if known (else null). */
-    public MapLocation hq() { return this.hq; }
+    /**
+     * Obtain our HQ location, if known (else null).
+     */
+    public MapLocation hq() {
+        return this.hq;
+    }
 
-    /** Obtain the enemy HQ location, if known (else null). */
-    public MapLocation enemyHq() { return this.enemyHq; }
+    /**
+     * Obtain the enemy HQ location, if known (else null).
+     */
+    public MapLocation enemyHq() {
+        return this.enemyHq;
+    }
 
-    /** Obtain the list of wall locations. */
-    public DynamicArray<MapLocation> walls() { return this.walls; }
+    /**
+     * Obtain the list of wall locations.
+     */
+    public DynamicArray<MapLocation> walls() {
+        return this.walls;
+    }
 
-    /** Returns the number of Design Schools that have broadcasted their existence in the last 40 turns */
+    /**
+     * Returns the number of Design Schools that have broadcasted their existence in the last 40 turns
+     */
     public int getNumDesignSchools() {
-        return 0;
+        return designSchoolIds.size();
     }
 
-    /** Returns the number of Fulfillment Centers that have broadcasted their existence in the last 40 turns */
-    public int getNumFulfillmentCenters(){
-        return 0;
+    /**
+     * Returns the number of Fulfillment Centers that have broadcasted their existence in the last 40 turns
+     */
+    public int getNumFulfillmentCenters() {
+        return fulfillmentCenterIds.size();
     }
 
-    /** Sent by a building to notify everyone of its existence, rebroadcasted every 30 turns by the buildings */
-    public void iExist(RobotType type){
-        // RobotType.FULFILLMENT_CENTER RobotType.DESIGN_SCHOOL
+    /**
+     * Sent by a building to notify everyone of its existence, rebroadcasted every 30 turns by the buildings
+     */
+    public void iExist(RobotInfo rob) {
+        //TODO: uncomment this line after implementing RobotInfoMessage
+        //this.sendQueue.add(new RobotInfoMessage(rob, MessageType.I_EXIST));
     }
 
-    /** The list of possible enemy locations; null if we don't know our own HQ locations. */
-    public DynamicArray<MapLocation> potentialEnemyLocations() { return this.possibleEnemyHqs; }
+    /**
+     * The list of possible enemy locations; null if we don't know our own HQ locations.
+     */
+    public DynamicArray<MapLocation> potentialEnemyLocations() {
+        return this.possibleEnemyHqs;
+    }
 
-    public boolean isWallDone() { return this.wallDone; }
+    public boolean isWallDone() {
+        return this.wallDone;
+    }
 
     public void notifyHqSurroundings(MapLocation hq, DynamicArray<MapLocation> walls) {
         if (this.hq == null) this.handlePotentialEnemyLocs(hq);
