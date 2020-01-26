@@ -56,6 +56,9 @@ public class Miner extends Unit {
         // Update comms so we are aware of important global state.
         comms.updateForTurn(rc);
 
+        // Self destruct if blocking wall after round 500
+        stopBlockingWall(rc);
+
         // Sorry miner, you were in the way :(
         if (wallStarted(rc, rc.getLocation()) && comms.walls() != null && comms.walls().indexOf(rc.getLocation()) != -1 && rc.senseElevation(rc.getLocation()) >= 20) {
             rc.disintegrate();
@@ -102,6 +105,13 @@ public class Miner extends Unit {
 
         // Useful for debugging.
         if (this.pathfinder != null) rc.setIndicatorLine(rc.getLocation(), this.pathfinder.goal(), 255, 0, 0);
+    }
+
+    /** Self destruct if on wall after a certain turn */
+    public void stopBlockingWall(RobotController rc) throws GameActionException {
+        if (rc.getRoundNum()>500 && rc.getLocation().distanceSquaredTo(comms.hq())<=2){
+            rc.disintegrate();
+        }
     }
 
     /** Update soup cluster and dropoff state. */

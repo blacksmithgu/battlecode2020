@@ -90,6 +90,11 @@ public strictfp class DeliveryDrone extends Unit {
     }
 
     public void run(RobotController rc, int turn) throws GameActionException {
+        // Uncomment to turn off drone functionality for other team, useful for testing if they slow down your econ
+        // especially since we don't have the miners building net guns around base yet
+        //if (rc.getTeam()== Team.B)
+        //    return;
+
         // Update our comms for global shared state.
         comms.updateForTurn(rc);
 
