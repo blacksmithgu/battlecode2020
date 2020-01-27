@@ -609,13 +609,7 @@ public class Miner extends Unit {
         }
 
         if (desiredBuilding == RobotType.VAPORATOR) {
-            if (rc.getRoundNum() < 200 && rc.senseElevation(loc) < 3) {
-                return false;
-            }
-            else if (rc.getRoundNum() < 500 && rc.senseElevation(loc) < 10) {
-                return false;
-            }
-            else if (rc.getRoundNum() < 1000 && rc.senseElevation(loc) < 20) {
+            if (rc.getRoundNum() > 500 && rc.senseElevation(loc) < 5) {
                 return false;
             }
         }
