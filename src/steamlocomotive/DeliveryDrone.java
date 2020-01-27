@@ -509,14 +509,16 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
+        if (rc.getRoundNum() >= 1000 && !rc.isCurrentlyHoldingUnit() && (allyDrones.size() <= enemyDrones.size() || comms.enemyHq() == null )) {
+            return new Transition(DroneState.DRONE_WALL, false);
+        }
+
         // If it's past round 1000, swarm the enemy base
         if (rc.getRoundNum() >= 1000 && comms.enemyHq() != null && !rc.isCurrentlyHoldingUnit() && allyDrones.size() > enemyDrones.size()) {
             return new Transition(DroneState.SWARMING, false);
         }
 
-        if (rc.getRoundNum() >= 1000 && !rc.isCurrentlyHoldingUnit() && (allyDrones.size() <= enemyDrones.size() || comms.enemyHq() == null )) {
-            return new Transition(DroneState.DRONE_WALL, false);
-        }
+
 
 
         //If it's after a certain round and the wall has not been built, transition to ferrying a landscaper
