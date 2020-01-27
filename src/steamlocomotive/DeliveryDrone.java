@@ -33,7 +33,9 @@ public strictfp class DeliveryDrone extends Unit {
         // The drone swarms the enemy HQ
         SWARMING,
         // The drone searches for the enemy HQ
-        FINDING_ENEMY_HQ
+        FINDING_ENEMY_HQ,
+        // Moving a miner to the lattice
+        LATTICE_PLACING,
     }
 
     private static class Transition {
@@ -159,6 +161,9 @@ public strictfp class DeliveryDrone extends Unit {
                     break;
                 case DRONE_WALL:
                     trans = this.droneWall(rc);
+                    break;
+                case LATTICE_PLACING:
+                    trans = this.latticePlacing(rc);
                     break;
                 default:
                 case ROAMING:
@@ -416,6 +421,37 @@ public strictfp class DeliveryDrone extends Unit {
         return new Transition(DroneState.FERRYING_LANDSCAPER, true);
     }
 
+
+    /**
+     * Places a miner on the lattice
+     */
+    private Transition latticePlacing(RobotController rc) throws GameActionException {
+        if (!rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.ROAMING, false);
+
+        MapLocation hq = comms.hq();
+        if(this.pathfinder == null) {
+            this.pathfinder = this.newPathfinder(hq, true);
+        }
+
+        if(rc.getLocation().distanceSquaredTo(hq) < 60) {
+            for(Direction dir: Direction.allDirections()) {
+                if(dir == Direction.CENTER) {
+                    continue;
+                }
+                if(rc.senseElevation(rc.getLocation().add(dir)) >= Config.terraformHeight(rc.getRoundNum()) && rc.canDropUnit(dir)) {
+                    rc.dropUnit(dir);
+                    return new Transition(DroneState.ROAMING, true);
+                }
+            }
+        }
+        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        Direction move = pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, hq, closestEnemyNetGun, true));
+        if(move != null && move!= Direction.CENTER) {
+            rc.move(move);
+        }
+        return new Transition(DroneState.LATTICE_PLACING, true);
+    }
+
     /**
      * If ferrying miners/landscapers is interrupted, tries to drop them off on any available space.
      */
@@ -489,11 +525,25 @@ public strictfp class DeliveryDrone extends Unit {
             return new Transition(DroneState.FINDING_LANDSCAPER, false);
         }
 
+        boolean closestMinerNearSoup = false;
+        MapLocation[] nearbySoup = rc.senseNearbySoup();
+        for(MapLocation loc: nearbySoup) {
+            if(loc.isAdjacentTo(closestFriendlyMiner)) {
+                closestMinerNearSoup = true;
+                break;
+            }
+        }
+
         //If there's hard-to-reach soup, and not currently carrying anything, transition to ferrying a miner
-        if (closestHardSoup != null && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit()) {
+        if (!closestMinerNearSoup && closestHardSoup != null && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit()) {
             if (closestFriendlyMiner.distanceSquaredTo(closestHardSoup) >= 18) {
                 return new Transition(DroneState.FINDING_MINER, false);
             }
+        }
+
+        //If it is the round to get builders and there are non-mining miners, make them builders
+        if (!closestMinerNearSoup && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit() && rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND && rc.senseElevation(closestFriendlyMiner) < Config.terraformHeight(rc.getRoundNum()) - 3) {
+            return new Transition(DroneState.FINDING_MINER, false);
         }
 
         // If drone knows where a cow is, it chases after it.
@@ -610,9 +660,12 @@ public strictfp class DeliveryDrone extends Unit {
             if (targetMinerInfo == null) {
                 return new Transition(DroneState.ROAMING, false);
             }
-            if (rc.canPickUpUnit(targetMinerInfo.ID)) {
+            if (rc.canPickUpUnit(targetMinerInfo.ID) && rc.getRoundNum() < Config.BUILD_TRANSITION_ROUND) {
                 rc.pickUpUnit(targetMinerInfo.ID);
                 return new Transition(DroneState.FERRYING_MINER, true);
+            } else if (rc.canPickUpUnit(targetMinerInfo.ID)) {
+                rc.pickUpUnit(targetMinerInfo.ID);
+                return new Transition(DroneState.LATTICE_PLACING, true);
             }
         }
 
