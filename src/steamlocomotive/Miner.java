@@ -256,6 +256,9 @@ public class Miner extends Unit {
 
     /** Implements roaming behavior, where the miner roams until it finds soup somewhere. */
     public MinerState roaming(RobotController rc) throws GameActionException {
+        // If we have a lot of soup, consider building a building
+        if (rc.getTeamSoup() > RobotType.VAPORATOR.cost && !this.triedBuilding) return MinerState.DREAMING_ABOUT_BUILDINGS;
+
         // If miner is a base builder, get to base building
         if (isBaseBuilder) return MinerState.BASE_BUILDING;
 
@@ -265,8 +268,7 @@ public class Miner extends Unit {
         // If there is nonzero soup we are aware of, transition to traveling to it.
         if (rc.getSoupCarrying() < Config.INVENTORY_RETURN_SIZE && soups.hasCluster()) return MinerState.TRAVEL;
 
-        // If we have a lot of soup, consider building a building
-        if (rc.getTeamSoup() > 1000 && !this.triedBuilding) return MinerState.DREAMING_ABOUT_BUILDINGS;
+
 
         // If it's sufficiently late in the game, transition to being a base builder
 //        if (rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND) {
