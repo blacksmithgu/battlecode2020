@@ -60,7 +60,7 @@ public class DesignSchool extends Unit {
         // Design school builds landscapers early, but not a lot
         // Similarly to drones, this should be insurance against rush.
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
-        if (rc.getRoundNum() < 150 && numLandscapersBuilt < 2) {
+        if (numLandscapersBuilt < 2) {
             buildLandscaperBasic(rc);
         }
 
@@ -91,7 +91,7 @@ public class DesignSchool extends Unit {
         // Ramps up production rate based on the amount of soup. Over 2000 soup, it makes a drone every turn.
         // TODO: Make the round cutoffs and rates into easily-twiddled constants in Config
         if (teamSoup >= RobotType.VAPORATOR.cost && numLandscapersBuilt <= 10) {
-            normalProduction(rc, teamSoup, myID, currentRound);
+            doubleProduction(rc, teamSoup, myID, currentRound);
         } else if (teamSoup >= RobotType.VAPORATOR.cost) {
             halfProduction(rc, teamSoup, myID, currentRound);
         }
