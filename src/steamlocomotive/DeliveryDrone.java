@@ -438,7 +438,7 @@ public strictfp class DeliveryDrone extends Unit {
                 if(dir == Direction.CENTER) {
                     continue;
                 }
-                if(rc.senseElevation(rc.getLocation().add(dir)) >= Config.terraformHeight(rc.getRoundNum()) && rc.canDropUnit(dir)) {
+                if(rc.senseElevation(rc.getLocation().add(dir)) >= Config.terraformHeight(rc.getRoundNum()) && rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir)) && rc.getLocation().add(dir).distanceSquaredTo(hq) > 2) {
                     rc.dropUnit(dir);
                     return new Transition(DroneState.ROAMING, true);
                 }
