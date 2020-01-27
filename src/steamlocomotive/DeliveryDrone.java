@@ -930,6 +930,16 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
+        // If close to HQ and a landscaper is between drone and HQ, drone is still.
+        // This may interfere with late-to-the-party bolsterers,  but a stationary wall is good
+        if (rc.getLocation().distanceSquaredTo(comms.hq()) <=  18) {
+            RobotInfo robotBetweenDroneAndHQ = rc.senseRobotAtLocation(rc.getLocation().add(rc.getLocation().directionTo(comms.hq())));
+            if (robotBetweenDroneAndHQ != null && robotBetweenDroneAndHQ.team == rc.getTeam() && robotBetweenDroneAndHQ.type == RobotType.LANDSCAPER) {
+                return new Transition(DroneState.DRONE_WALL, true);
+            }
+        }
+
+
         // If drone not yet near HQ, it goes to it
         // If no pathfinder, create it to the HQ.
         if (this.pathfinder == null) {

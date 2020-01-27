@@ -90,7 +90,7 @@ public class DesignSchool extends Unit {
         // This is the typical landscaper production behavior, same as drone production
         // Ramps up production rate based on the amount of soup. Over 2000 soup, it makes a drone every turn.
         // TODO: Make the round cutoffs and rates into easily-twiddled constants in Config
-        if (teamSoup >= RobotType.VAPORATOR.cost && numLandscapersBuilt <= 10) {
+        if (teamSoup >= RobotType.VAPORATOR.cost - 100 && numLandscapersBuilt <= 5) {
             doubleProduction(rc, teamSoup, myID, currentRound);
         } else if (teamSoup >= RobotType.VAPORATOR.cost) {
             halfProduction(rc, teamSoup, myID, currentRound);
