@@ -221,8 +221,8 @@ public class Miner extends Unit {
         }
 
         // Check for enemy drones and try to build a net gun
-        if (rc.getTeamSoup() >= RobotType.NET_GUN.cost) {
-            if (!foundNetgun && closestDrone.distance <= GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
+        if (rc.getTeamSoup() >= RobotType.VAPORATOR.cost - 100) {
+            if (!foundNetgun && closestDrone.distance <= Config.BUILD_BUILDING_MIN_DIST) {
                 if (rc.canBuildRobot(RobotType.NET_GUN, rc.getLocation().directionTo(closestDrone.robot.location))) {
                     rc.buildRobot(RobotType.NET_GUN, rc.getLocation().directionTo(closestDrone.robot.location));
                     return;
@@ -313,6 +313,9 @@ public class Miner extends Unit {
         // TODO: Hacky :/
         if (isBaseBuilder) return MinerState.BASE_BUILDING;
 
+        if (rc.getTeamSoup() > RobotType.VAPORATOR.cost && !this.triedBuilding)
+            return MinerState.DREAMING_ABOUT_BUILDINGS;
+
         // Hacky solution to some bad behavior; if we can mine soup, immediately transition to mining.
         for (Direction dir : Direction.allDirections()) {
             if (rc.canMineSoup(dir)) return MinerState.MINE;
@@ -345,6 +348,9 @@ public class Miner extends Unit {
 
     /** Dropoff behavior, where a miner travels to the refinery for dropoff. */
     public MinerState dropoff(RobotController rc) throws GameActionException {
+        if (rc.getTeamSoup() > RobotType.VAPORATOR.cost && !this.triedBuilding)
+            return MinerState.DREAMING_ABOUT_BUILDINGS;
+
         // If construction has started on the wall, drop efforts to drop at the HQ.
         if (comms.hq().equals(this.refinery) && rc.canSenseLocation(comms.hq()) && wallStarted(rc, comms.hq()))
             this.refinery = null;
@@ -475,9 +481,9 @@ public class Miner extends Unit {
 
         // Determine which buildings we should consider building based on how far away we are from existing buildings.
         boolean buildFulfillment = (this.fulfillment == null || this.fulfillment.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST)
-                && comms.fulfillmentCenters().size() == 0;
+                && comms.fulfillmentCenters().size() <=2;
         boolean buildDesign = (this.design == null || this.design.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_BUILDING_MIN_DIST)
-                && comms.designSchools().size() == 0;
+                && comms.designSchools().size() <=2;
         boolean buildNetGun = (this.netGun == null || this.netGun.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_NET_GUN_MIN_DIST);
         boolean buildVaporator = (this.vaporator == null || this.vaporator.distanceSquaredTo(rc.getLocation()) >= Config.BUILD_VAP_MIN_DIST);
 
