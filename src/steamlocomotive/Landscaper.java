@@ -624,7 +624,6 @@ public class Landscaper extends Unit {
             if (this.isWallTile(loc)) continue;
 
             RobotInfo robot = rc.senseRobotAtLocation(loc);
-            if (robot != null && !robot.type.canBePickedUp()) continue;
 
             // TODO: No matter how I try, this is ugly without using an actual comparator :(
             boolean better = false;
@@ -634,7 +633,7 @@ public class Landscaper extends Unit {
             if (!better && !isBolster && (isBolsterTile(loc) || isInnerBolsterTile(loc))) continue;
             else if (isBolster && !isBolsterTile(loc)) better = true;
 
-            boolean locAlly = robot != null && robot.getTeam().isPlayer();
+            boolean locAlly = robot != null && robot.getTeam().isPlayer() && robot.type.canBePickedUp();
             if (!better && !hasAlly && locAlly) continue;
             else if (hasAlly && !locAlly) better = true;
 
