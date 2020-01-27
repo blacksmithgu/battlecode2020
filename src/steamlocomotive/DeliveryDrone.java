@@ -69,6 +69,8 @@ public strictfp class DeliveryDrone extends Unit {
     private MapLocation closestHardSoup;
     // The closest friendly miner that we've seen
     private MapLocation closestFriendlyMiner;
+    // Tracks whether closestFriendlyMiner is near soup
+    private boolean closestMinerNearSoup;
     // The closest friendly landscaper that we've seen
     private MapLocation closestFriendlyLandscaper;
     // The elevation of the closest friendly miner
@@ -95,6 +97,7 @@ public strictfp class DeliveryDrone extends Unit {
         this.closestCow = null;
         this.closestHardSoup = null;
         this.closestFriendlyMiner = null;
+        this.closestMinerNearSoup = false;
         this.closestFriendlyMinerElevation = 0;
         this.closestFriendlyLandscaper = null;
     }
@@ -509,15 +512,15 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
-        if (rc.getRoundNum() >= 1000 && !rc.isCurrentlyHoldingUnit() && (allyDrones.size() <= enemyDrones.size() || comms.enemyHq() == null )) {
-            return new Transition(DroneState.DRONE_WALL, false);
-        }
 
         // If it's past round 1000, swarm the enemy base
         if (rc.getRoundNum() >= 1000 && comms.enemyHq() != null && !rc.isCurrentlyHoldingUnit() && allyDrones.size() > enemyDrones.size()) {
             return new Transition(DroneState.SWARMING, false);
         }
 
+        if (rc.getRoundNum() >= 1000 && !rc.isCurrentlyHoldingUnit() && (allyDrones.size() <= enemyDrones.size() || comms.enemyHq() == null )) {
+            return new Transition(DroneState.DRONE_WALL, false);
+        }
 
 
 
@@ -527,12 +530,16 @@ public strictfp class DeliveryDrone extends Unit {
             return new Transition(DroneState.FINDING_LANDSCAPER, false);
         }
 
-        boolean closestMinerNearSoup = false;
-        MapLocation[] nearbySoup = rc.senseNearbySoup();
-        for(MapLocation loc: nearbySoup) {
-            if(loc.isAdjacentTo(closestFriendlyMiner)) {
-                closestMinerNearSoup = true;
-                break;
+
+        //TODO: Move this to the sensing logic
+        if (rc.canSenseLocation(closestFriendlyMiner)) {
+            closestMinerNearSoup = false;
+            MapLocation[] nearbySoup = rc.senseNearbySoup();
+            for (MapLocation loc : nearbySoup) {
+                if (loc.isAdjacentTo(closestFriendlyMiner)) {
+                    closestMinerNearSoup = true;
+                    break;
+                }
             }
         }
 
