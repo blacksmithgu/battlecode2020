@@ -532,13 +532,15 @@ public strictfp class DeliveryDrone extends Unit {
 
 
         //TODO: Move this to the sensing logic
-        if (rc.canSenseLocation(closestFriendlyMiner)) {
+        if (closestFriendlyMiner != null && rc.canSenseLocation(closestFriendlyMiner.add(rc.getLocation().directionTo(closestFriendlyMiner)))) {
             closestMinerNearSoup = false;
-            MapLocation[] nearbySoup = rc.senseNearbySoup();
-            for (MapLocation loc : nearbySoup) {
-                if (loc.isAdjacentTo(closestFriendlyMiner)) {
-                    closestMinerNearSoup = true;
-                    break;
+            MapLocation[] nearbySoup = rc.senseNearbySoup(closestFriendlyMiner,2);
+            if (nearbySoup != null) {
+                for (MapLocation loc : nearbySoup) {
+                    if (loc != null && loc.isAdjacentTo(closestFriendlyMiner)) {
+                        closestMinerNearSoup = true;
+                        break;
+                    }
                 }
             }
         }
