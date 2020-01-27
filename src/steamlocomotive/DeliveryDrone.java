@@ -536,6 +536,16 @@ public strictfp class DeliveryDrone extends Unit {
             }
         }
 
+        // If on top of the closest water, move off of it
+        if (rc.getLocation() == closestWater) {
+            for (Direction dir: Direction.allDirections()) {
+                if (dir != Direction.CENTER && rc.canMove(dir)) {
+                    rc.move(dir);
+                    return new Transition(DroneState.DUNKING, true);
+                }
+            }
+        }
+
         // If no pathfinder, create it to the closest water.
         if (this.pathfinder == null) {
             // If all water has been unflooded, cry a little and roam.
@@ -816,11 +826,11 @@ public strictfp class DeliveryDrone extends Unit {
         // If drone near HQ and it's been long enough, swarm. There are four waves.
         // If drone is near HQ and it's not yet time, it sits still
         if (rc.getLocation().distanceSquaredTo(comms.enemyHq()) <= 25) {
-            if (rc.getRoundNum() > 1600 && rc.getRoundNum() < 1610) {
+            if (rc.getRoundNum() > 1300 && rc.getRoundNum() < 1325) {
                 return new Transition(DroneState.RECKLESS_CHASING, false);
-            } else if (rc.getRoundNum() > 2100 && rc.getRoundNum() < 2110) {
+            } else if (rc.getRoundNum() > 1700 && rc.getRoundNum() < 1725) {
                 return new Transition(DroneState.RECKLESS_CHASING, false);
-            } else if (rc.getRoundNum() > 2600 && rc.getRoundNum() < 2610) {
+            } else if (rc.getRoundNum() > 2100 && rc.getRoundNum() < 2125) {
                 return new Transition(DroneState.RECKLESS_CHASING, false);
             } else if (rc.getRoundNum() > 3000) {
                 return new Transition(DroneState.RECKLESS_CHASING, false);
