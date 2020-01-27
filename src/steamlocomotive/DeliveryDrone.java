@@ -338,9 +338,6 @@ public strictfp class DeliveryDrone extends Unit {
         if (closestEnemyNetGun != null && rc.getLocation().distanceSquaredTo(closestEnemyNetGun) < GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
             moveAway(rc, closestEnemyNetGun);
         }
-        else if (comms.enemyHq() != null && rc.getLocation().distanceSquaredTo(comms.enemyHq()) < GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED) {
-            moveAway(rc, comms.enemyHq());
-        }
     }
 
     /**
