@@ -114,7 +114,7 @@ public class Config {
     /**
      * After this round, if wall has not been built, landscapers go to build wall. Before this round, they don't build wall.
      */
-    public static final int WALL_BUILD_ROUND_NUM = 250;
+    public static final int WALL_BUILD_ROUND_NUM = 150;
 
     /** Distance the terraformer scans for good tiles to terraform. */
     public static int TERRAFORM_SCAN_DIST = 2;
