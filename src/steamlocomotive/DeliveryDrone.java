@@ -430,6 +430,7 @@ public strictfp class DeliveryDrone extends Unit {
      */
     private Transition latticePlacing(RobotController rc) throws GameActionException {
         if (!rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.ROAMING, false);
+        if (rc.getRoundNum() > 1100) return new Transition(DroneState.DUNKING, false);
 
         MapLocation hq = comms.hq();
         if(this.pathfinder == null) {
@@ -441,14 +442,14 @@ public strictfp class DeliveryDrone extends Unit {
                 if(dir == Direction.CENTER) {
                     continue;
                 }
-                if(rc.senseElevation(rc.getLocation().add(dir)) >= Config.terraformHeight(rc.getRoundNum()) && rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir)) && rc.getLocation().add(dir).distanceSquaredTo(hq) > 2) {
+                if(rc.senseElevation(rc.getLocation().add(dir)) >= Config.terraformHeight(rc.getRoundNum()) - 3 && rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir)) && rc.getLocation().add(dir).distanceSquaredTo(hq) > 2) {
                     rc.dropUnit(dir);
                     return new Transition(DroneState.ROAMING, true);
                 }
             }
         }
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Direction move = pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, hq, closestEnemyNetGun, true));
+        Direction move = pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if(move != null && move!= Direction.CENTER) {
             rc.move(move);
         }
@@ -553,7 +554,7 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         //If it is the round to get builders and there are non-mining miners, make them builders
-        if (!closestMinerNearSoup && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit() && rc.canSenseLocation(closestFriendlyMiner) && rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND && rc.senseElevation(closestFriendlyMiner) < Config.terraformHeight(rc.getRoundNum()) - 3) {
+        if (!closestMinerNearSoup && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit() && rc.canSenseLocation(closestFriendlyMiner) && rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND && rc.senseElevation(closestFriendlyMiner) < Config.terraformHeight(rc.getRoundNum()) - 6) {
             return new Transition(DroneState.FINDING_MINER, false);
         }
 
@@ -674,7 +675,7 @@ public strictfp class DeliveryDrone extends Unit {
             if (rc.canPickUpUnit(targetMinerInfo.ID) && rc.getRoundNum() < Config.BUILD_TRANSITION_ROUND) {
                 rc.pickUpUnit(targetMinerInfo.ID);
                 return new Transition(DroneState.FERRYING_MINER, true);
-            } else if (rc.canPickUpUnit(targetMinerInfo.ID) && rc.senseElevation(targetMinerInfo.location) < 20) {
+            } else if (rc.canPickUpUnit(targetMinerInfo.ID)) {
                 rc.pickUpUnit(targetMinerInfo.ID);
                 return new Transition(DroneState.LATTICE_PLACING, true);
             }
