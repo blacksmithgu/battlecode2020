@@ -676,7 +676,7 @@ public strictfp class DeliveryDrone extends Unit {
             if (targetMinerInfo == null) {
                 return new Transition(DroneState.ROAMING, false);
             }
-            if (rc.canPickUpUnit(targetMinerInfo.ID) && rc.getRoundNum() < Config.BUILD_TRANSITION_ROUND) {
+            if (rc.canPickUpUnit(targetMinerInfo.ID) && closestHardSoup!= null) {
                 rc.pickUpUnit(targetMinerInfo.ID);
                 return new Transition(DroneState.FERRYING_MINER, true);
             } else if (rc.canPickUpUnit(targetMinerInfo.ID)) {
