@@ -79,7 +79,7 @@ public class DesignSchool extends Unit {
         // Design school builds landscapers early, but not a lot
         // Similarly to drones, this should be insurance against rush.
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
-        if (numLandscapersBuilt < 4) {
+        if (numLandscapersBuilt < 6) {
             buildLandscaperBasic(rc);
         }
 
