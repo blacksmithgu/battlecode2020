@@ -430,7 +430,7 @@ public strictfp class DeliveryDrone extends Unit {
      */
     private Transition latticePlacing(RobotController rc) throws GameActionException {
         if (!rc.isCurrentlyHoldingUnit()) return new Transition(DroneState.ROAMING, false);
-        if (rc.getRoundNum() > 1100) return new Transition(DroneState.DUNKING, false);
+        if (rc.getRoundNum() > 1000) return new Transition(DroneState.DROPOFF_FRIENDLY, false);
 
         MapLocation hq = comms.hq();
         if(this.pathfinder == null) {
