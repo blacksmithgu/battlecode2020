@@ -284,7 +284,7 @@ public class Landscaper extends Unit {
 
         // If adjacent to an enemy building, bury it
         // This should help when defending against rush
-        if (this.closestEnemy != null && this.closestEnemy.location.isAdjacentTo(rc.getLocation()) && this.closestEnemy.type != RobotType.LANDSCAPER) {
+        if (this.closestEnemy != null && this.closestEnemy.location.isAdjacentTo(rc.getLocation()) && this.closestEnemy.type.isBuilding()) {
             if (rc.canDepositDirt(rc.getLocation().directionTo(closestEnemy.location))) {
                 depositLoc = rc.getLocation().directionTo(closestEnemy.location);
             }
