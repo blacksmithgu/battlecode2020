@@ -62,8 +62,10 @@ public class DesignSchool extends Unit {
         int adjSpotsWithinHeight = 0;
         for (Direction adj : Direction.allDirections()) {
             if (adj == Direction.CENTER) continue;
-            if (rc.senseElevation(rc.getLocation().add(adj)) <= rc.senseElevation(rc.getLocation()) + 3 && rc.senseElevation(rc.getLocation().add(adj)) >= rc.senseElevation(rc.getLocation()) - 3) {
-                adjSpotsWithinHeight++;
+            if (rc.canSenseLocation(rc.getLocation().add(adj))) {
+                if (rc.senseElevation(rc.getLocation().add(adj)) <= rc.senseElevation(rc.getLocation()) + 3 && rc.senseElevation(rc.getLocation().add(adj)) >= rc.senseElevation(rc.getLocation()) - 3) {
+                    adjSpotsWithinHeight++;
+                }
             }
         }
         if (adjSpotsWithinHeight == 0) rc.disintegrate();
