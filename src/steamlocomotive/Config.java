@@ -108,7 +108,8 @@ public class Config {
         if (round < 400) return 5;
         else if (round < 800) return 10;
         else if (round < 1400) return 15;
-        else return 20;
+        else if (round < 1800) return 20;
+        else return 30;
     }
 
     /**
