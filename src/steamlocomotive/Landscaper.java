@@ -150,12 +150,27 @@ public class Landscaper extends Unit {
                 }
             }
         }
-        if (comms.isWallDone()  && rc.getRoundNum() > 250 && isBolsterTile(rc.getLocation())) {
-            this.state = LandscaperState.BOLSTER_WALL;
-        }
-        if (rc.getRoundNum() > 500 && rc.getLocation().distanceSquaredTo(comms.hq()) <= 2) {
+        if (rc.getRoundNum() > 200 && rc.getLocation().distanceSquaredTo(comms.hq()) <= 2) {
             this.state = LandscaperState.BUILD_WALL;
         }
+        else if (comms.isWallDone()  && rc.getRoundNum() > 250 && isBolsterTile(rc.getLocation())) {
+            this.state = LandscaperState.BOLSTER_WALL;
+        }
+        else {
+            Utils.ClosestRobot closestDrone = Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam().opponent());
+            if(closestDrone.robot != null && closestDrone.distance <= 8){
+                Direction runAwayDirection = closestDrone.robot.location.directionTo(rc.getLocation());
+                if (rc.canMove(runAwayDirection) && !rc.senseFlooding(rc.getLocation().add(runAwayDirection))) {
+                    rc.move(runAwayDirection);
+                } else if (rc.canMove(runAwayDirection.rotateRight()) && !rc.senseFlooding(rc.getLocation().add(runAwayDirection.rotateRight()))) {
+                    rc.move(runAwayDirection.rotateRight());
+                } else if (rc.canMove(runAwayDirection.rotateLeft()) && !rc.senseFlooding(rc.getLocation().add(runAwayDirection.rotateLeft()))) {
+                    rc.move(runAwayDirection.rotateLeft());
+                }
+            }
+        }
+
+
     }
 
     /**
