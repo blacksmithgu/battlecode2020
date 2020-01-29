@@ -72,7 +72,7 @@ public class DesignSchool extends Unit {
         // Don't build landscapers directly into the waiting arms of enemy drones
         Utils.ClosestRobot closestDrone = Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam().opponent());
         Utils.ClosestRobot closestFriendlyNet = Utils.closestRobot(rc, RobotType.NET_GUN, rc.getTeam());
-        if(closestDrone.robot != null && closestDrone.distance <= 10 && closestFriendlyNet.distance >= 13) return;
+        if(closestDrone.robot != null && (closestDrone == null || closestDrone.distance <= 10) && closestFriendlyNet.distance >= 13) return;
 
 
 
