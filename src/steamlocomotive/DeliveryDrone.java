@@ -526,7 +526,7 @@ public strictfp class DeliveryDrone extends Unit {
 
 
         //If it's after a certain round and the wall has not been built, transition to ferrying a landscaper
-        if (comms.walls() != null && wallIdxTarget != comms.walls().size() && rc.getRoundNum() > 200 && !comms.isWallDone()
+        if (comms.walls() != null && wallIdxTarget != comms.walls().size() && rc.getRoundNum() > 100 && !comms.isWallDone()
                 && closestFriendlyLandscaper != null && !rc.isCurrentlyHoldingUnit()) {
             return new Transition(DroneState.FINDING_LANDSCAPER, false);
         }
