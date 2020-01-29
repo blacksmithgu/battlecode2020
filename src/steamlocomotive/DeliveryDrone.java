@@ -554,7 +554,7 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         //If it is the round to get builders and there are non-mining miners, make them builders
-        if (!closestMinerNearSoup && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit() && rc.canSenseLocation(closestFriendlyMiner) && rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND && rc.senseElevation(closestFriendlyMiner) < Config.terraformHeight(rc.getRoundNum()) - 10 && rc.getRoundNum() < 800) {
+        if (!closestMinerNearSoup && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit() && rc.canSenseLocation(closestFriendlyMiner) && rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND && rc.senseElevation(closestFriendlyMiner) < 10 && rc.getRoundNum() < 800) {
             return new Transition(DroneState.FINDING_MINER, false);
         }
 
