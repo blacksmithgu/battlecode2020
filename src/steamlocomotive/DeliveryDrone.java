@@ -533,7 +533,7 @@ public strictfp class DeliveryDrone extends Unit {
 
 
         //TODO: Move this to the sensing logic
-        if (closestFriendlyMiner != null && rc.canSenseLocation(closestFriendlyMiner.add(rc.getLocation().directionTo(closestFriendlyMiner)))) {
+        if (closestFriendlyMiner != null && rc.canSenseLocation(closestFriendlyMiner)) {
             closestMinerNearSoup = false;
             MapLocation[] nearbySoup = rc.senseNearbySoup(closestFriendlyMiner,2);
             if (nearbySoup != null) {
@@ -548,7 +548,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         //If there's hard-to-reach soup, and not currently carrying anything, transition to ferrying a miner
         if (!closestMinerNearSoup && closestHardSoup != null && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit()) {
-            if (closestFriendlyMiner.distanceSquaredTo(closestHardSoup) >= 18) {
+            if (closestFriendlyMiner.distanceSquaredTo(closestHardSoup) >= 12) {
                 return new Transition(DroneState.FINDING_MINER, false);
             }
         }
