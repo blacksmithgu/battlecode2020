@@ -153,9 +153,9 @@ public class Landscaper extends Unit {
         if (comms.isWallDone() && rc.senseElevation(rc.getLocation()) >= Config.terraformHeight(rc.getRoundNum()) && rc.getRoundNum() > 500 && isBolsterTile(rc.getLocation())) {
             this.state = LandscaperState.BOLSTER_WALL;
         }
-//        if (rc.getLocation().distanceSquaredTo(comms.hq()) <= 2 && this.state.equals(LandscaperState.TERRAFORM)) {
-//            this.state = LandscaperState.BUILD_WALL;
-//        }
+        if (rc.getRoundNum() > 500 && rc.getLocation().distanceSquaredTo(comms.hq()) <= 2) {
+            this.state = LandscaperState.BUILD_WALL;
+        }
     }
 
     /**
