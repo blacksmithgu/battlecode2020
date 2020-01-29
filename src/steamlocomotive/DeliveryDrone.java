@@ -433,15 +433,19 @@ public strictfp class DeliveryDrone extends Unit {
         if (rc.getRoundNum() > 1000) return new Transition(DroneState.DROPOFF_FRIENDLY, false);
 
         MapLocation hq = comms.hq();
-        if (rc.getLocation().distanceSquaredTo(hq) <= 20 && this.pathfinder != null && this.pathfinder.goal() == hq) {
+
+        // First, take miner towards HQ
+        // After that, wander randomly
+        if (this.pathfinder != null && this.pathfinder.finished(rc.getLocation())) {
+            MapLocation randomTarget = new MapLocation(this.rng.nextInt(rc.getMapWidth()), this.rng.nextInt(rc.getMapHeight()));
             Direction directionToHQ = rc.getLocation().directionTo(hq);
-            this.pathfinder = this.newPathfinder(hq.add(directionToHQ).add(directionToHQ).add(directionToHQ).add(directionToHQ).add(directionToHQ), true);
+            this.pathfinder = this.newPathfinder(randomTarget, true);
         }
         else if(this.pathfinder == null) {
             this.pathfinder = this.newPathfinder(hq, true);
         }
-
-        if(rc.getLocation().distanceSquaredTo(hq) < 60) {
+        
+        // If at any point drone adjacent to a high-ish spot, drop off the miner
             for(Direction dir: Direction.allDirections()) {
                 if(dir == Direction.CENTER) {
                     continue;
@@ -451,7 +455,7 @@ public strictfp class DeliveryDrone extends Unit {
                     return new Transition(DroneState.ROAMING, true);
                 }
             }
-        }
+
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         Direction move = pathfinder.findMove(rc.getLocation(), dir -> DeliveryDrone.canMoveD(rc, dir, enemies, comms.enemyHq(), closestEnemyNetGun, true));
         if(move != null && move!= Direction.CENTER) {
