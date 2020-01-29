@@ -555,14 +555,14 @@ public strictfp class DeliveryDrone extends Unit {
         }
 
         //If there's hard-to-reach soup, and not currently carrying anything, transition to ferrying a miner
-        if (!closestMinerNearSoup && closestHardSoup != null && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit()) {
+        if (closestFriendlyMiner != null && !closestMinerNearSoup && closestHardSoup != null && !rc.isCurrentlyHoldingUnit()) {
             if (closestFriendlyMiner.distanceSquaredTo(closestHardSoup) > 2) {
                 return new Transition(DroneState.FINDING_MINER, false);
             }
         }
 
         //If it is the round to get builders and there are non-mining miners, make them builders
-        if (!closestMinerNearSoup && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit() && rc.canSenseLocation(closestFriendlyMiner) && rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND && rc.senseElevation(closestFriendlyMiner) < 10 && rc.getRoundNum() < 800) {
+        if (closestFriendlyMiner != null && !closestMinerNearSoup && !rc.isCurrentlyHoldingUnit() && rc.canSenseLocation(closestFriendlyMiner) && rc.getRoundNum() > Config.BUILD_TRANSITION_ROUND && rc.senseElevation(closestFriendlyMiner) < 10 && rc.getRoundNum() < 800) {
             return new Transition(DroneState.FINDING_MINER, false);
         }
 
