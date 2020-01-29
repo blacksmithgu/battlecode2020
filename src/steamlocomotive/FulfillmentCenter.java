@@ -48,6 +48,12 @@ public class FulfillmentCenter extends Unit {
             }
         }
 
+
+        // If near an enemy landscaper and don't see friendly drone, build a drone
+        Utils.ClosestRobot closestFriendlyDrone = Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam());
+        Utils.ClosestRobot closestEnemyLandScaper = Utils.closestRobot(rc, RobotType.LANDSCAPER, rc.getTeam().opponent());
+        if (closestFriendlyDrone== null && closestEnemyLandScaper != null) buildTowardsEnemy(rc, nearbyRobots);
+
         // These initial two drones are meant to preempt a rush
         // The isOutnumbered stuff above can react to rushes, but due to the 10 turn lag on creation to activity...
         // I think it's good to be a little proactive
