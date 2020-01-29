@@ -93,7 +93,7 @@ public class Config {
      * The min squared distance we build buildings away from the HQ.
      */
     public static final int BUILD_BUILDING_MIN_HQ_DIST = 9;
-    public static final int EQUALITY_ROUND = 350;
+    public static final int EQUALITY_ROUND = 240;
 
     public static final int BUILD_TRANSITION_ROUND = 600;
     public static final int BUILD_ON_CREATION_ROUND_NUMBER = 220;
@@ -114,7 +114,7 @@ public class Config {
     /**
      * After this round, if wall has not been built, landscapers go to build wall. Before this round, they don't build wall.
      */
-    public static final int WALL_BUILD_ROUND_NUM = 150;
+    public static final int WALL_BUILD_ROUND_NUM = 0;
 
     /** Distance the terraformer scans for good tiles to terraform. */
     public static int TERRAFORM_SCAN_DIST = 2;
