@@ -433,7 +433,11 @@ public strictfp class DeliveryDrone extends Unit {
         if (rc.getRoundNum() > 1000) return new Transition(DroneState.DROPOFF_FRIENDLY, false);
 
         MapLocation hq = comms.hq();
-        if(this.pathfinder == null) {
+        if (rc.getLocation().distanceSquaredTo(hq) <= 20 && this.pathfinder != null && this.pathfinder.goal() == hq) {
+            Direction directionToHQ = rc.getLocation().directionTo(hq);
+            this.pathfinder = this.newPathfinder(hq.add(directionToHQ).add(directionToHQ).add(directionToHQ).add(directionToHQ).add(directionToHQ), true);
+        }
+        else if(this.pathfinder == null) {
             this.pathfinder = this.newPathfinder(hq, true);
         }
 
@@ -442,7 +446,7 @@ public strictfp class DeliveryDrone extends Unit {
                 if(dir == Direction.CENTER) {
                     continue;
                 }
-                if(rc.senseElevation(rc.getLocation().add(dir)) >= Config.terraformHeight(rc.getRoundNum()) - 3 && rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir)) && rc.getLocation().add(dir).distanceSquaredTo(hq) > 2) {
+                if(rc.senseElevation(rc.getLocation().add(dir)) >= 10 && rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir)) && rc.getLocation().add(dir).distanceSquaredTo(hq) > 5) {
                     rc.dropUnit(dir);
                     return new Transition(DroneState.ROAMING, true);
                 }
