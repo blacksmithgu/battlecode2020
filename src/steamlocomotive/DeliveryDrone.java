@@ -548,7 +548,7 @@ public strictfp class DeliveryDrone extends Unit {
 
         //If there's hard-to-reach soup, and not currently carrying anything, transition to ferrying a miner
         if (!closestMinerNearSoup && closestHardSoup != null && closestFriendlyMiner != null && !rc.isCurrentlyHoldingUnit()) {
-            if (closestFriendlyMiner.distanceSquaredTo(closestHardSoup) >= 12) {
+            if (closestFriendlyMiner.distanceSquaredTo(closestHardSoup) > 2) {
                 return new Transition(DroneState.FINDING_MINER, false);
             }
         }
