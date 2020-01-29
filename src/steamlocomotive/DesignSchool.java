@@ -57,6 +57,25 @@ public class DesignSchool extends Unit {
         int myID = rc.getID();
         int currentRound = rc.getRoundNum();
 
+
+        // If all adjacent spots are too high/low to build onto, destroy self so miners know to build more design schools
+        int adjSpotsWithinHeight = 0;
+        for (Direction adj : Direction.allDirections()) {
+            if (adj == Direction.CENTER) continue;
+            if (rc.senseElevation(rc.getLocation().add(adj)) <= rc.senseElevation(rc.getLocation()) + 3 && rc.senseElevation(rc.getLocation().add(adj)) >= rc.senseElevation(rc.getLocation()) - 3) {
+                adjSpotsWithinHeight++;
+            }
+        }
+        if (adjSpotsWithinHeight == 0) rc.disintegrate();
+
+
+        // Don't build landscapers directly into the waiting arms of enemy drones
+        Utils.ClosestRobot closestDrone = Utils.closestRobot(rc, RobotType.DELIVERY_DRONE, rc.getTeam().opponent());
+        Utils.ClosestRobot closestFriendlyNet = Utils.closestRobot(rc, RobotType.NET_GUN, rc.getTeam());
+        if(closestDrone.robot != null && closestDrone.distance <= 10 && closestFriendlyNet.distance >= 13) return;
+
+
+
         // Design school builds landscapers early, but not a lot
         // Similarly to drones, this should be insurance against rush.
         // (As long as first design center gets built near HQ quickly and landscapers know to unbury HQ)
