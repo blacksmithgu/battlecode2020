@@ -444,7 +444,7 @@ public strictfp class DeliveryDrone extends Unit {
         else if(this.pathfinder == null) {
             this.pathfinder = this.newPathfinder(hq, true);
         }
-        
+
         // If at any point drone adjacent to a high-ish spot, drop off the miner
             for(Direction dir: Direction.allDirections()) {
                 if(dir == Direction.CENTER) {
@@ -523,11 +523,11 @@ public strictfp class DeliveryDrone extends Unit {
 
 
         // If it's past round 1000, swarm the enemy base
-        if (rc.getRoundNum() >= 1000 && comms.enemyHq() != null && !rc.isCurrentlyHoldingUnit() && allyDrones.size() > enemyDrones.size()) {
+        if (rc.getRoundNum() >= 1000 && comms.enemyHq() != null && !rc.isCurrentlyHoldingUnit() && allyDrones!= null && enemyDrones != null && allyDrones.size() > enemyDrones.size()) {
             return new Transition(DroneState.SWARMING, false);
         }
 
-        if (rc.getRoundNum() >= 1000 && !rc.isCurrentlyHoldingUnit() && (allyDrones.size() <= enemyDrones.size() || comms.enemyHq() == null )) {
+        if (rc.getRoundNum() >= 1000 && !rc.isCurrentlyHoldingUnit() && ((allyDrones!= null && enemyDrones != null && allyDrones.size() <= enemyDrones.size()) || comms.enemyHq() == null )) {
             return new Transition(DroneState.DRONE_WALL, false);
         }
 
