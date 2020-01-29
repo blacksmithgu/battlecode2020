@@ -153,7 +153,7 @@ public class Landscaper extends Unit {
         if (rc.getRoundNum() > 200 && rc.getLocation().distanceSquaredTo(comms.hq()) <= 2) {
             this.state = LandscaperState.BUILD_WALL;
         }
-        else if (comms.isWallDone()  && rc.getRoundNum() > 250 && isBolsterTile(rc.getLocation())) {
+        else if ((comms.isWallDone() || rc.getRoundNum() > 300) && isBolsterTile(rc.getLocation())) {
             this.state = LandscaperState.BOLSTER_WALL;
         }
         else {
